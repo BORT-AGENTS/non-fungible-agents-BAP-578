@@ -18,11 +18,21 @@ pragma solidity ^0.8.28;
 ///         IPolicyGuard. See EXTENSION-README.md for the composition pattern.
 interface IVaultPermissionManager {
     /// @notice Permission tiers. Higher tiers strictly include lower tiers.
-    enum PermissionLevel { NONE, READ, WRITE, ADMIN }
+    enum PermissionLevel {
+        NONE,
+        READ,
+        WRITE,
+        ADMIN
+    }
 
     // ---- Events -----------------------------------------------------------
 
-    event VaultCreated(uint256 indexed tokenId, bytes32 indexed vaultIdHash, string vaultId, address creator);
+    event VaultCreated(
+        uint256 indexed tokenId,
+        bytes32 indexed vaultIdHash,
+        string vaultId,
+        address creator
+    );
 
     event PermissionGranted(
         uint256 indexed tokenId,
@@ -33,7 +43,11 @@ interface IVaultPermissionManager {
         string description
     );
 
-    event PermissionRevoked(uint256 indexed tokenId, bytes32 indexed vaultIdHash, address indexed grantee);
+    event PermissionRevoked(
+        uint256 indexed tokenId,
+        bytes32 indexed vaultIdHash,
+        address indexed grantee
+    );
 
     event ActionForwarded(
         uint256 indexed tokenId,
@@ -79,11 +93,7 @@ interface IVaultPermissionManager {
 
     /// @notice Revoke an existing grant.
     /// @dev Callable by the NFT owner or an ADMIN on the same vault.
-    function revokePermission(
-        uint256 tokenId,
-        string calldata vaultId,
-        address grantee
-    ) external;
+    function revokePermission(uint256 tokenId, string calldata vaultId, address grantee) external;
 
     /// @notice Forward an action to the agent's bound logic module.
     /// @dev msg.sender must have at least WRITE on (tokenId, vaultId). Reverts

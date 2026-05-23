@@ -13,10 +13,9 @@ import "./IVaultPermissionManager.sol";
 interface IBAP578 {
     function ownerOf(uint256 tokenId) external view returns (address);
 
-    function agentStates(uint256 tokenId)
-        external
-        view
-        returns (uint256 balance, bool active, address logicAddress, uint256 createdAt);
+    function agentStates(
+        uint256 tokenId
+    ) external view returns (uint256 balance, bool active, address logicAddress, uint256 createdAt);
 }
 
 /// @dev The downstream-callable shape that VPM forwards into. Logic modules
@@ -58,7 +57,7 @@ contract VaultPermissionManagerReference is
     struct Grant {
         PermissionLevel level;
         uint256 expiry; // 0 = no expiry
-        uint256 epoch;  // owner epoch of the token when this grant was created
+        uint256 epoch; // owner epoch of the token when this grant was created
         bool exists;
     }
 
@@ -148,13 +147,10 @@ contract VaultPermissionManagerReference is
         emit PermissionGranted(tokenId, vid, grantee, level, expiry, description);
     }
 
-    function revokePermission(
-        uint256 tokenId,
-        string calldata vaultId,
-        address grantee
-    ) external {
+    function revokePermission(uint256 tokenId, string calldata vaultId, address grantee) external {
         bytes32 vid = _vid(vaultId);
         require(_grants[tokenId][vid][grantee].exists, "VPM: no such grant");
+        _syncEpoch(tokenId);
         _authorizeGrantor(tokenId, vid);
 
         delete _grants[tokenId][vid][grantee];
@@ -208,7 +204,11 @@ contract VaultPermissionManagerReference is
         address accessor
     ) external view returns (bool) {
         (bool ok, ) = _check(
-            tokenId, _vid(vaultId), accessor, PermissionLevel.WRITE, _currentEpoch(tokenId)
+            tokenId,
+            _vid(vaultId),
+            accessor,
+            PermissionLevel.WRITE,
+            _currentEpoch(tokenId)
         );
         return ok;
     }
@@ -244,7 +244,11 @@ contract VaultPermissionManagerReference is
     function _authorizeGrantor(uint256 tokenId, bytes32 vid) internal view {
         if (IBAP578(bap578).ownerOf(tokenId) == msg.sender) return;
         (bool isAdmin, ) = _check(
-            tokenId, vid, msg.sender, PermissionLevel.ADMIN, _currentEpoch(tokenId)
+            tokenId,
+            vid,
+            msg.sender,
+            PermissionLevel.ADMIN,
+            _currentEpoch(tokenId)
         );
         require(isAdmin, "VPM: not owner or admin");
     }

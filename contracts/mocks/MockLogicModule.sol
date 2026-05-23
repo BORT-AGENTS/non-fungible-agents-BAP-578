@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import { ILogicModuleForwardable } from "../extensions/VaultPermissionManagerReference.sol";
+
 /// @notice Minimal mock implementing the ILogicModuleForwardable surface.
 ///         Records the last call and lets tests assert on (tokenId, action, data).
-contract MockLogicModule {
+contract MockLogicModule is ILogicModuleForwardable {
     uint256 public lastTokenId;
     string public lastAction;
     bytes public lastData;
@@ -20,10 +22,12 @@ contract MockLogicModule {
         uint256 tokenId,
         string calldata action,
         bytes calldata data
-    ) external returns (bytes memory) {
+    ) external override returns (bytes memory) {
         if (revertNext) {
             revertNext = false;
-            revert(bytes(revertMessage).length == 0 ? "MockLogicModule: forced revert" : revertMessage);
+            revert(
+                bytes(revertMessage).length == 0 ? "MockLogicModule: forced revert" : revertMessage
+            );
         }
         lastTokenId = tokenId;
         lastAction = action;
