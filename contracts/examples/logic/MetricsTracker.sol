@@ -25,12 +25,18 @@ abstract contract MetricsTracker {
     mapping(uint256 => uint256) internal _lastActiveTimestamp;
 
     function _recordAction(uint256 tokenId, bool success, bool isTrade) internal {
-        unchecked { _totalActionsCount[tokenId] += 1; }
+        unchecked {
+            _totalActionsCount[tokenId] += 1;
+        }
         if (success) {
-            unchecked { _successfulActionsCount[tokenId] += 1; }
+            unchecked {
+                _successfulActionsCount[tokenId] += 1;
+            }
         }
         if (isTrade) {
-            unchecked { _totalTradesCount[tokenId] += 1; }
+            unchecked {
+                _totalTradesCount[tokenId] += 1;
+            }
         }
         _lastActiveTimestamp[tokenId] = block.timestamp;
     }
@@ -39,24 +45,30 @@ abstract contract MetricsTracker {
      * @notice Hunter-compatible getter so AgentMetricsService can read every logic
      *         type through the same ABI without per-contract specialization.
      */
-    function getMetrics(uint256 tokenId) external view returns (
-        uint256 _totalActions,
-        uint256 _successfulActions,
-        uint256 _totalTrades,
-        int256  _lifetimePnL,
-        uint256 _totalInteractions,
-        uint256 _lastActive,
-        uint256 _activePositions
-    ) {
+    function getMetrics(
+        uint256 tokenId
+    )
+        external
+        view
+        returns (
+            uint256 _totalActions,
+            uint256 _successfulActions,
+            uint256 _totalTrades,
+            int256 _lifetimePnL,
+            uint256 _totalInteractions,
+            uint256 _lastActive,
+            uint256 _activePositions
+        )
+    {
         uint256 succ = _successfulActionsCount[tokenId];
         return (
             _totalActionsCount[tokenId],
             succ,
             _totalTradesCount[tokenId],
-            int256(0),                       // PnL tracked off-chain in TradeHistoryService
-            succ,                            // totalInteractions aliases successfulActions
+            int256(0), // PnL tracked off-chain in TradeHistoryService
+            succ, // totalInteractions aliases successfulActions
             _lastActiveTimestamp[tokenId],
-            uint256(0)                       // positions tracked off-chain
+            uint256(0) // positions tracked off-chain
         );
     }
 }

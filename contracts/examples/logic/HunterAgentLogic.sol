@@ -13,12 +13,22 @@ interface IERC721Ownable {
  */
 interface IPancakeRouter02 {
     function swapExactETHForTokensSupportingFeeOnTransferTokens(
-        uint amountOutMin, address[] calldata path, address to, uint deadline
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
     ) external payable;
     function swapExactTokensForETHSupportingFeeOnTransferTokens(
-        uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
     ) external;
-    function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts);
+    function getAmountsOut(
+        uint amountIn,
+        address[] calldata path
+    ) external view returns (uint[] memory amounts);
     function WETH() external pure returns (address);
 }
 
@@ -34,15 +44,42 @@ interface IFourMemeTokenManager {
  * @title IFourMemeHelper
  */
 interface IFourMemeHelper {
-    function getTokenInfo(address token) external view returns (
-        uint256 version, address tokenManager, address quote, uint256 lastPrice,
-        uint256 tradingFeeRate, uint256 minTradingFee, uint256 launchTime,
-        uint256 offers, uint256 maxOffers, uint256 funds, uint256 maxFunds, bool liquidityAdded
-    );
-    function tryBuy(address token, uint256 amount, uint256 fundAmount) external view returns (
-        address tokenManager, address quote, uint256 estimatedAmount, uint256 estimatedCost,
-        uint256 estimatedFee, uint256 amountMsgValue, uint256 amountApproval, uint256 amountFunds
-    );
+    function getTokenInfo(
+        address token
+    )
+        external
+        view
+        returns (
+            uint256 version,
+            address tokenManager,
+            address quote,
+            uint256 lastPrice,
+            uint256 tradingFeeRate,
+            uint256 minTradingFee,
+            uint256 launchTime,
+            uint256 offers,
+            uint256 maxOffers,
+            uint256 funds,
+            uint256 maxFunds,
+            bool liquidityAdded
+        );
+    function tryBuy(
+        address token,
+        uint256 amount,
+        uint256 fundAmount
+    )
+        external
+        view
+        returns (
+            address tokenManager,
+            address quote,
+            uint256 estimatedAmount,
+            uint256 estimatedCost,
+            uint256 estimatedFee,
+            uint256 amountMsgValue,
+            uint256 amountApproval,
+            uint256 amountFunds
+        );
 }
 
 /**
@@ -71,7 +108,6 @@ interface IERC20 {
  *           pausable, two-step ownership, emergency withdrawal, gas reimbursement
  */
 contract HunterAgentLogic {
-
     // ── Custom Errors ──
     error NotOwner();
     error NotAuthorized();
@@ -100,10 +136,13 @@ contract HunterAgentLogic {
     error InvalidTakeProfit();
 
     // ── Constants ──
-    IPancakeRouter02 public constant ROUTER = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+    IPancakeRouter02 public constant ROUTER =
+        IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
     address public constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
-    IFourMemeTokenManager public constant FOURMEME = IFourMemeTokenManager(0x5c952063c7fc8610FFDB798152D69F0B9550762b);
-    IFourMemeHelper public constant FOURMEME_HELPER = IFourMemeHelper(0xF251F83e40a78868FcfA3FA4599Dad6494E46034);
+    IFourMemeTokenManager public constant FOURMEME =
+        IFourMemeTokenManager(0x5c952063c7fc8610FFDB798152D69F0B9550762b);
+    IFourMemeHelper public constant FOURMEME_HELPER =
+        IFourMemeHelper(0xF251F83e40a78868FcfA3FA4599Dad6494E46034);
 
     uint256 public constant MAX_SLIPPAGE_BPS = 3000;
     uint256 public constant DEADLINE_EXTENSION = 300;
@@ -115,13 +154,13 @@ contract HunterAgentLogic {
     /// @dev A tracked position — one token the hunter is holding
     struct Position {
         address tokenAddress;
-        uint256 entryAmountBnb;       // BNB spent to buy
-        uint256 tokenAmount;          // Tokens held
-        uint256 entryTimestamp;       // When bought
-        uint256 stopLossBps;          // Stop-loss: sell all if value drops below entry * (10000 - stopLossBps) / 10000
-        uint256 takeProfitBps;        // Take-profit: sell half if value exceeds entry * takeProfitBps / 10000
-        bool takeProfitExecuted;      // Whether take-profit was already triggered
-        bool active;                  // Position is open
+        uint256 entryAmountBnb; // BNB spent to buy
+        uint256 tokenAmount; // Tokens held
+        uint256 entryTimestamp; // When bought
+        uint256 stopLossBps; // Stop-loss: sell all if value drops below entry * (10000 - stopLossBps) / 10000
+        uint256 takeProfitBps; // Take-profit: sell half if value exceeds entry * takeProfitBps / 10000
+        bool takeProfitExecuted; // Whether take-profit was already triggered
+        bool active; // Position is open
     }
 
     // ── State Variables ──
@@ -158,22 +197,56 @@ contract HunterAgentLogic {
 
     mapping(uint256 => uint256) public totalActions;
     mapping(uint256 => uint256) public successfulActions;
-    mapping(uint256 => uint256) public totalTrades;        // buy + sell count
-    mapping(uint256 => int256)  public lifetimePnL;        // cumulative realized PnL in wei
-    mapping(uint256 => uint256) public totalInteractions;  // chat interactions recorded
+    mapping(uint256 => uint256) public totalTrades; // buy + sell count
+    mapping(uint256 => int256) public lifetimePnL; // cumulative realized PnL in wei
+    mapping(uint256 => uint256) public totalInteractions; // chat interactions recorded
     mapping(uint256 => uint256) public lastActiveTimestamp;
 
     // ── Events ──
 
     event ActionHandled(uint256 indexed tokenId, string action, bool success, bytes result);
-    event SwapExecuted(uint256 indexed tokenId, string swapType, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
+    event SwapExecuted(
+        uint256 indexed tokenId,
+        string swapType,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 amountOut
+    );
     event Deposited(uint256 indexed tokenId, address token, uint256 amount);
     event Withdrawn(uint256 indexed tokenId, address token, uint256 amount, address to);
-    event FourMemeBuy(uint256 indexed tokenId, address token, uint256 bnbSpent, uint256 tokensReceived);
-    event FourMemeSell(uint256 indexed tokenId, address token, uint256 tokensSold, uint256 bnbReceived);
-    event AgentOwnerWithdraw(uint256 indexed tokenId, address indexed agentOwner, address token, uint256 amount);
-    event GasReimbursed(uint256 indexed tokenId, address indexed caller, uint256 gasUsed, uint256 gasCost);
-    event TradingActionRequested(uint256 indexed tokenId, address indexed caller, string action, address tokenAddress, uint256 amount, uint256 slippageBps);
+    event FourMemeBuy(
+        uint256 indexed tokenId,
+        address token,
+        uint256 bnbSpent,
+        uint256 tokensReceived
+    );
+    event FourMemeSell(
+        uint256 indexed tokenId,
+        address token,
+        uint256 tokensSold,
+        uint256 bnbReceived
+    );
+    event AgentOwnerWithdraw(
+        uint256 indexed tokenId,
+        address indexed agentOwner,
+        address token,
+        uint256 amount
+    );
+    event GasReimbursed(
+        uint256 indexed tokenId,
+        address indexed caller,
+        uint256 gasUsed,
+        uint256 gasCost
+    );
+    event TradingActionRequested(
+        uint256 indexed tokenId,
+        address indexed caller,
+        string action,
+        address tokenAddress,
+        uint256 amount,
+        uint256 slippageBps
+    );
     event SlippageUpdated(uint256 oldBps, uint256 newBps);
     event CallerAuthorized(address caller);
     event CallerRevoked(address caller);
@@ -185,20 +258,57 @@ contract HunterAgentLogic {
     event Bap578Updated(address indexed oldAddress, address indexed newAddress);
 
     // Position events
-    event PositionOpened(uint256 indexed tokenId, address indexed token, uint256 bnbSpent, uint256 tokensReceived, uint256 stopLossBps, uint256 takeProfitBps);
-    event PositionClosed(uint256 indexed tokenId, address indexed token, uint256 tokensSold, uint256 bnbReceived, int256 pnl);
-    event TakeProfitTriggered(uint256 indexed tokenId, address indexed token, uint256 tokensSold, uint256 bnbReceived);
-    event StopLossTriggered(uint256 indexed tokenId, address indexed token, uint256 tokensSold, uint256 bnbReceived);
+    event PositionOpened(
+        uint256 indexed tokenId,
+        address indexed token,
+        uint256 bnbSpent,
+        uint256 tokensReceived,
+        uint256 stopLossBps,
+        uint256 takeProfitBps
+    );
+    event PositionClosed(
+        uint256 indexed tokenId,
+        address indexed token,
+        uint256 tokensSold,
+        uint256 bnbReceived,
+        int256 pnl
+    );
+    event TakeProfitTriggered(
+        uint256 indexed tokenId,
+        address indexed token,
+        uint256 tokensSold,
+        uint256 bnbReceived
+    );
+    event StopLossTriggered(
+        uint256 indexed tokenId,
+        address indexed token,
+        uint256 tokensSold,
+        uint256 bnbReceived
+    );
 
     // Activity events (for V5 compat)
     event ActivityRecorded(uint256 indexed tokenId, uint256 platform, uint256 timestamp);
-    event LearningRecorded(uint256 indexed tokenId, bytes32 dataHash, uint256 interactionCount, uint256 timestamp);
+    event LearningRecorded(
+        uint256 indexed tokenId,
+        bytes32 dataHash,
+        uint256 interactionCount,
+        uint256 timestamp
+    );
 
     // ── Modifiers ──
 
-    modifier onlyOwner() { if (msg.sender != owner) revert NotOwner(); _; }
-    modifier onlyAuthorized() { if (!authorizedCallers[msg.sender] && msg.sender != owner) revert NotAuthorized(); _; }
-    modifier whenNotPaused() { if (paused) revert ContractPaused(); _; }
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner();
+        _;
+    }
+    modifier onlyAuthorized() {
+        if (!authorizedCallers[msg.sender] && msg.sender != owner) revert NotAuthorized();
+        _;
+    }
+    modifier whenNotPaused() {
+        if (paused) revert ContractPaused();
+        _;
+    }
     modifier nonReentrant() {
         if (_reentrancyStatus == _ENTERED) revert Reentrant();
         _reentrancyStatus = _ENTERED;
@@ -230,15 +340,46 @@ contract HunterAgentLogic {
         authorizedCallers[caller] = true;
         emit CallerAuthorized(caller);
     }
-    function revokeCaller(address caller) external onlyOwner { authorizedCallers[caller] = false; emit CallerRevoked(caller); }
-    function setDefaultSlippage(uint256 bps) external onlyOwner { if (bps < 50 || bps > MAX_SLIPPAGE_BPS) revert InvalidSlippage(); emit SlippageUpdated(defaultSlippageBps, bps); defaultSlippageBps = bps; }
-    function transferOwnership(address newOwner) external onlyOwner { if (newOwner == address(0)) revert ZeroAddress(); pendingOwner = newOwner; emit OwnershipTransferStarted(owner, newOwner); }
-    function acceptOwnership() external { if (msg.sender != pendingOwner) revert NotPendingOwner(); emit OwnershipTransferred(owner, pendingOwner); owner = pendingOwner; pendingOwner = address(0); }
-    function pause() external onlyOwner { paused = true; emit Paused(msg.sender); }
-    function unpause() external onlyOwner { paused = false; emit Unpaused(msg.sender); }
-    function setBap578(address _bap578) external onlyOwner { if (_bap578 == address(0)) revert ZeroAddress(); emit Bap578Updated(address(bap578), _bap578); bap578 = IERC721Ownable(_bap578); }
-    function setGasReimbursementEnabled(bool _enabled) external onlyOwner { gasReimbursementEnabled = _enabled; }
-    function setGasOverhead(uint256 _overhead) external onlyOwner { if (_overhead > 500000) revert OverheadTooHigh(); gasOverhead = _overhead; }
+    function revokeCaller(address caller) external onlyOwner {
+        authorizedCallers[caller] = false;
+        emit CallerRevoked(caller);
+    }
+    function setDefaultSlippage(uint256 bps) external onlyOwner {
+        if (bps < 50 || bps > MAX_SLIPPAGE_BPS) revert InvalidSlippage();
+        emit SlippageUpdated(defaultSlippageBps, bps);
+        defaultSlippageBps = bps;
+    }
+    function transferOwnership(address newOwner) external onlyOwner {
+        if (newOwner == address(0)) revert ZeroAddress();
+        pendingOwner = newOwner;
+        emit OwnershipTransferStarted(owner, newOwner);
+    }
+    function acceptOwnership() external {
+        if (msg.sender != pendingOwner) revert NotPendingOwner();
+        emit OwnershipTransferred(owner, pendingOwner);
+        owner = pendingOwner;
+        pendingOwner = address(0);
+    }
+    function pause() external onlyOwner {
+        paused = true;
+        emit Paused(msg.sender);
+    }
+    function unpause() external onlyOwner {
+        paused = false;
+        emit Unpaused(msg.sender);
+    }
+    function setBap578(address _bap578) external onlyOwner {
+        if (_bap578 == address(0)) revert ZeroAddress();
+        emit Bap578Updated(address(bap578), _bap578);
+        bap578 = IERC721Ownable(_bap578);
+    }
+    function setGasReimbursementEnabled(bool _enabled) external onlyOwner {
+        gasReimbursementEnabled = _enabled;
+    }
+    function setGasOverhead(uint256 _overhead) external onlyOwner {
+        if (_overhead > 500000) revert OverheadTooHigh();
+        gasOverhead = _overhead;
+    }
 
     // ══════════════════════════════════════════════════════════════
     //  Deposit / Withdraw
@@ -251,7 +392,11 @@ contract HunterAgentLogic {
         emit Deposited(tokenId, address(0), msg.value);
     }
 
-    function depositToken(uint256 tokenId, address token, uint256 amount) external whenNotPaused nonReentrant {
+    function depositToken(
+        uint256 tokenId,
+        address token,
+        uint256 amount
+    ) external whenNotPaused nonReentrant {
         if (amount == 0) revert ZeroAmount();
         if (token == address(0)) revert ZeroAddress();
         if (address(bap578) != address(0)) bap578.ownerOf(tokenId);
@@ -263,16 +408,25 @@ contract HunterAgentLogic {
         emit Deposited(tokenId, token, received);
     }
 
-    function withdrawBNB(uint256 tokenId, uint256 amount, address payable to) external onlyOwner nonReentrant {
+    function withdrawBNB(
+        uint256 tokenId,
+        uint256 amount,
+        address payable to
+    ) external onlyOwner nonReentrant {
         if (agentBNBBalance[tokenId] < amount) revert InsufficientBNB();
         if (to == address(0)) revert ZeroAddress();
         agentBNBBalance[tokenId] -= amount;
-        (bool sent, ) = to.call{value: amount}("");
+        (bool sent, ) = to.call{ value: amount }("");
         if (!sent) revert TransferFailed();
         emit Withdrawn(tokenId, address(0), amount, to);
     }
 
-    function withdrawToken(uint256 tokenId, address token, uint256 amount, address to) external onlyOwner nonReentrant {
+    function withdrawToken(
+        uint256 tokenId,
+        address token,
+        uint256 amount,
+        address to
+    ) external onlyOwner nonReentrant {
         if (agentTokenBalance[tokenId][token] < amount) revert InsufficientTokens();
         if (to == address(0)) revert ZeroAddress();
         agentTokenBalance[tokenId][token] -= amount;
@@ -280,16 +434,23 @@ contract HunterAgentLogic {
         emit Withdrawn(tokenId, token, amount, to);
     }
 
-    function agentOwnerWithdrawBNB(uint256 tokenId, uint256 amount) external onlyAgentOwner(tokenId) whenNotPaused nonReentrant {
+    function agentOwnerWithdrawBNB(
+        uint256 tokenId,
+        uint256 amount
+    ) external onlyAgentOwner(tokenId) whenNotPaused nonReentrant {
         if (amount == 0) revert ZeroAmount();
         if (agentBNBBalance[tokenId] < amount) revert InsufficientBNB();
         agentBNBBalance[tokenId] -= amount;
-        (bool sent, ) = payable(msg.sender).call{value: amount}("");
+        (bool sent, ) = payable(msg.sender).call{ value: amount }("");
         if (!sent) revert TransferFailed();
         emit AgentOwnerWithdraw(tokenId, msg.sender, address(0), amount);
     }
 
-    function agentOwnerWithdrawToken(uint256 tokenId, address token, uint256 amount) external onlyAgentOwner(tokenId) whenNotPaused nonReentrant {
+    function agentOwnerWithdrawToken(
+        uint256 tokenId,
+        address token,
+        uint256 amount
+    ) external onlyAgentOwner(tokenId) whenNotPaused nonReentrant {
         if (amount == 0) revert ZeroAmount();
         if (token == address(0)) revert ZeroAddress();
         if (agentTokenBalance[tokenId][token] < amount) revert InsufficientTokens();
@@ -303,8 +464,9 @@ contract HunterAgentLogic {
         if (to == address(0)) revert ZeroAddress();
         uint256 bal = address(this).balance;
         if (bal == 0) revert NothingToRecover();
-        paused = true; emit Paused(msg.sender);
-        (bool sent, ) = to.call{value: bal}("");
+        paused = true;
+        emit Paused(msg.sender);
+        (bool sent, ) = to.call{ value: bal }("");
         if (!sent) revert TransferFailed();
         emit EmergencyWithdraw(address(0), bal, to);
     }
@@ -312,12 +474,17 @@ contract HunterAgentLogic {
         if (to == address(0)) revert ZeroAddress();
         uint256 bal = IERC20(token).balanceOf(address(this));
         if (bal == 0) revert NothingToRecover();
-        paused = true; emit Paused(msg.sender);
+        paused = true;
+        emit Paused(msg.sender);
         _safeTransfer(token, to, bal);
         emit EmergencyWithdraw(token, bal, to);
     }
-    function resetAgentBalance(uint256 tokenId) external onlyOwner { agentBNBBalance[tokenId] = 0; }
-    function resetAgentTokenBalance(uint256 tokenId, address token) external onlyOwner { agentTokenBalance[tokenId][token] = 0; }
+    function resetAgentBalance(uint256 tokenId) external onlyOwner {
+        agentBNBBalance[tokenId] = 0;
+    }
+    function resetAgentTokenBalance(uint256 tokenId, address token) external onlyOwner {
+        agentTokenBalance[tokenId][token] = 0;
+    }
 
     // ══════════════════════════════════════════════════════════════
     //  handleAction — Main Dispatcher
@@ -327,7 +494,13 @@ contract HunterAgentLogic {
         uint256 tokenId,
         string calldata action,
         bytes calldata payload
-    ) external onlyAuthorized whenNotPaused nonReentrant returns (bool success, bytes memory result) {
+    )
+        external
+        onlyAuthorized
+        whenNotPaused
+        nonReentrant
+        returns (bool success, bytes memory result)
+    {
         uint256 gasStart = gasleft();
         bytes32 actionHash = keccak256(bytes(action));
 
@@ -351,7 +524,7 @@ contract HunterAgentLogic {
         } else if (actionHash == keccak256(bytes("check_fourmeme"))) {
             (success, result) = _handleCheckFourMeme(payload);
 
-        // ── Position Management ──
+            // ── Position Management ──
         } else if (actionHash == keccak256(bytes("open_position"))) {
             (success, result) = _handleOpenPosition(tokenId, payload);
         } else if (actionHash == keccak256(bytes("close_position"))) {
@@ -361,12 +534,11 @@ contract HunterAgentLogic {
         } else if (actionHash == keccak256(bytes("check_exit_signals"))) {
             (success, result) = _handleCheckExitSignals(tokenId, payload);
 
-        // ── Activity/Learning (V5 compat) ──
+            // ── Activity/Learning (V5 compat) ──
         } else if (actionHash == keccak256(bytes("record_activity"))) {
             (success, result) = _handleRecordActivity(tokenId, payload);
         } else if (actionHash == keccak256(bytes("record_learning"))) {
             (success, result) = _handleRecordLearning(tokenId, payload);
-
         } else {
             (success, result) = (false, abi.encode("Unknown action"));
         }
@@ -385,9 +557,17 @@ contract HunterAgentLogic {
     ///      Payload: (address token, uint256 amountBnb, uint256 slippageBps, uint256 stopLossBps, uint256 takeProfitBps)
     ///      stopLossBps: 5000 = sell if value drops 50%. 0 = no stop-loss.
     ///      takeProfitBps: 20000 = sell half at 2x. 0 = no take-profit.
-    function _handleOpenPosition(uint256 tokenId, bytes calldata payload) internal returns (bool, bytes memory) {
-        (address token, uint256 amountBnb, uint256 slippageBps, uint256 stopLossBps, uint256 takeProfitBps) =
-            abi.decode(payload, (address, uint256, uint256, uint256, uint256));
+    function _handleOpenPosition(
+        uint256 tokenId,
+        bytes calldata payload
+    ) internal returns (bool, bytes memory) {
+        (
+            address token,
+            uint256 amountBnb,
+            uint256 slippageBps,
+            uint256 stopLossBps,
+            uint256 takeProfitBps
+        ) = abi.decode(payload, (address, uint256, uint256, uint256, uint256));
 
         if (token == address(0)) revert ZeroAddress();
         if (amountBnb == 0) revert ZeroAmount();
@@ -409,7 +589,7 @@ contract HunterAgentLogic {
         if (isFourMeme && !liquidityAdded) {
             uint256 balBefore = IERC20(token).balanceOf(address(this));
             uint256 minTokens = _estimateFourMemeBuy(token, amountBnb, slippageBps);
-            FOURMEME.buyTokenAMAP{value: amountBnb}(token, amountBnb, minTokens);
+            FOURMEME.buyTokenAMAP{ value: amountBnb }(token, amountBnb, minTokens);
             tokensReceived = IERC20(token).balanceOf(address(this)) - balBefore;
             if (tokensReceived == 0) revert FourMemeBuyFailed();
             emit FourMemeBuy(tokenId, token, amountBnb, tokensReceived);
@@ -441,7 +621,10 @@ contract HunterAgentLogic {
 
     /// @dev Close a position: sell only the position's tracked tokens (not unrelated tokens).
     ///      Payload: (address token, uint256 slippageBps)
-    function _handleClosePosition(uint256 tokenId, bytes calldata payload) internal returns (bool, bytes memory) {
+    function _handleClosePosition(
+        uint256 tokenId,
+        bytes calldata payload
+    ) internal returns (bool, bytes memory) {
         (address token, uint256 slippageBps) = abi.decode(payload, (address, uint256));
 
         Position storage pos = positions[tokenId][token];
@@ -501,10 +684,18 @@ contract HunterAgentLogic {
         bytes memory result = abi.encode(count);
         for (uint256 i = 0; i < count; i++) {
             Position storage pos = positions[tokenId][tokens[i]];
-            result = abi.encodePacked(result, abi.encode(
-                pos.tokenAddress, pos.entryAmountBnb, pos.tokenAmount,
-                pos.entryTimestamp, pos.stopLossBps, pos.takeProfitBps, pos.takeProfitExecuted
-            ));
+            result = abi.encodePacked(
+                result,
+                abi.encode(
+                    pos.tokenAddress,
+                    pos.entryAmountBnb,
+                    pos.tokenAmount,
+                    pos.entryTimestamp,
+                    pos.stopLossBps,
+                    pos.takeProfitBps,
+                    pos.takeProfitExecuted
+                )
+            );
         }
 
         return (true, result);
@@ -513,7 +704,10 @@ contract HunterAgentLogic {
     /// @dev Check if any position has hit stop-loss or take-profit targets.
     ///      Payload: (address token, uint256 currentValueBnb) — current BNB value of the token holding
     ///      Runtime calls this with oracle price data.
-    function _handleCheckExitSignals(uint256 tokenId, bytes calldata payload) internal view returns (bool, bytes memory) {
+    function _handleCheckExitSignals(
+        uint256 tokenId,
+        bytes calldata payload
+    ) internal view returns (bool, bytes memory) {
         (address token, uint256 currentValueBnb) = abi.decode(payload, (address, uint256));
 
         Position storage pos = positions[tokenId][token];
@@ -523,7 +717,8 @@ contract HunterAgentLogic {
 
         // Check stop-loss: value dropped below threshold
         if (pos.stopLossBps > 0) {
-            uint256 stopLossThreshold = (entryValue * (BPS_DENOMINATOR - pos.stopLossBps)) / BPS_DENOMINATOR;
+            uint256 stopLossThreshold = (entryValue * (BPS_DENOMINATOR - pos.stopLossBps)) /
+                BPS_DENOMINATOR;
             if (currentValueBnb <= stopLossThreshold) {
                 return (true, abi.encode("stop_loss", token, currentValueBnb, entryValue));
             }
@@ -544,13 +739,26 @@ contract HunterAgentLogic {
     //  Trading Handlers (same as CTOAgentLogic V5)
     // ══════════════════════════════════════════════════════════════
 
-    function _handleBuyToken(uint256 tokenId, bytes calldata payload) internal returns (bool, bytes memory) {
-        (address tokenAddress, uint256 amountBNB, uint256 slippageBps) = abi.decode(payload, (address, uint256, uint256));
+    function _handleBuyToken(
+        uint256 tokenId,
+        bytes calldata payload
+    ) internal returns (bool, bytes memory) {
+        (address tokenAddress, uint256 amountBNB, uint256 slippageBps) = abi.decode(
+            payload,
+            (address, uint256, uint256)
+        );
         if (tokenAddress == address(0)) revert ZeroAddress();
         if (slippageBps == 0) slippageBps = defaultSlippageBps;
         if (slippageBps > MAX_SLIPPAGE_BPS) revert InvalidSlippage();
         if (agentBNBBalance[tokenId] < amountBNB) revert InsufficientBNB();
-        emit TradingActionRequested(tokenId, msg.sender, "buy_token", tokenAddress, amountBNB, slippageBps);
+        emit TradingActionRequested(
+            tokenId,
+            msg.sender,
+            "buy_token",
+            tokenAddress,
+            amountBNB,
+            slippageBps
+        );
         agentBNBBalance[tokenId] -= amountBNB;
         uint256 tokensReceived = _swapBNBForToken(tokenAddress, amountBNB, slippageBps);
         agentTokenBalance[tokenId][tokenAddress] += tokensReceived;
@@ -559,13 +767,26 @@ contract HunterAgentLogic {
         return (true, abi.encode("Trade executed"));
     }
 
-    function _handleSellToken(uint256 tokenId, bytes calldata payload) internal returns (bool, bytes memory) {
-        (address tokenAddress, uint256 amountTokens, uint256 slippageBps) = abi.decode(payload, (address, uint256, uint256));
+    function _handleSellToken(
+        uint256 tokenId,
+        bytes calldata payload
+    ) internal returns (bool, bytes memory) {
+        (address tokenAddress, uint256 amountTokens, uint256 slippageBps) = abi.decode(
+            payload,
+            (address, uint256, uint256)
+        );
         if (tokenAddress == address(0)) revert ZeroAddress();
         if (slippageBps == 0) slippageBps = defaultSlippageBps;
         if (slippageBps > MAX_SLIPPAGE_BPS) revert InvalidSlippage();
         if (agentTokenBalance[tokenId][tokenAddress] < amountTokens) revert InsufficientTokens();
-        emit TradingActionRequested(tokenId, msg.sender, "sell_token", tokenAddress, amountTokens, slippageBps);
+        emit TradingActionRequested(
+            tokenId,
+            msg.sender,
+            "sell_token",
+            tokenAddress,
+            amountTokens,
+            slippageBps
+        );
         agentTokenBalance[tokenId][tokenAddress] -= amountTokens;
         uint256 bnbReceived = _swapTokenForBNB(tokenAddress, amountTokens, slippageBps);
         agentBNBBalance[tokenId] += bnbReceived;
@@ -574,28 +795,55 @@ contract HunterAgentLogic {
         return (true, abi.encode("Trade executed"));
     }
 
-    function _handleCheckBalance(uint256 tokenId, bytes calldata payload) internal view returns (bool, bytes memory) {
+    function _handleCheckBalance(
+        uint256 tokenId,
+        bytes calldata payload
+    ) internal view returns (bool, bytes memory) {
         address tokenAddress = abi.decode(payload, (address));
-        return (true, abi.encode(agentBNBBalance[tokenId], agentTokenBalance[tokenId][tokenAddress]));
+        return (
+            true,
+            abi.encode(agentBNBBalance[tokenId], agentTokenBalance[tokenId][tokenAddress])
+        );
     }
 
     function _handleGetPrice(bytes calldata payload) internal view returns (bool, bytes memory) {
-        (address tokenAddress, uint256 amountIn, bool isBuyQuote) = abi.decode(payload, (address, uint256, bool));
+        (address tokenAddress, uint256 amountIn, bool isBuyQuote) = abi.decode(
+            payload,
+            (address, uint256, bool)
+        );
         address[] memory path = new address[](2);
-        if (isBuyQuote) { path[0] = WBNB; path[1] = tokenAddress; }
-        else { path[0] = tokenAddress; path[1] = WBNB; }
+        if (isBuyQuote) {
+            path[0] = WBNB;
+            path[1] = tokenAddress;
+        } else {
+            path[0] = tokenAddress;
+            path[1] = WBNB;
+        }
         uint[] memory amounts = ROUTER.getAmountsOut(amountIn, path);
         return (true, abi.encode(amounts[1]));
     }
 
-    function _handleBuyFourMeme(uint256 tokenId, bytes calldata payload) internal returns (bool, bytes memory) {
-        (address tokenAddress, uint256 amountBNB, uint256 minTokens) = abi.decode(payload, (address, uint256, uint256));
+    function _handleBuyFourMeme(
+        uint256 tokenId,
+        bytes calldata payload
+    ) internal returns (bool, bytes memory) {
+        (address tokenAddress, uint256 amountBNB, uint256 minTokens) = abi.decode(
+            payload,
+            (address, uint256, uint256)
+        );
         if (tokenAddress == address(0)) revert ZeroAddress();
         if (agentBNBBalance[tokenId] < amountBNB) revert InsufficientBNB();
-        emit TradingActionRequested(tokenId, msg.sender, "buy_fourmeme", tokenAddress, amountBNB, 0);
+        emit TradingActionRequested(
+            tokenId,
+            msg.sender,
+            "buy_fourmeme",
+            tokenAddress,
+            amountBNB,
+            0
+        );
         agentBNBBalance[tokenId] -= amountBNB;
         uint256 balBefore = IERC20(tokenAddress).balanceOf(address(this));
-        FOURMEME.buyTokenAMAP{value: amountBNB}(tokenAddress, amountBNB, minTokens);
+        FOURMEME.buyTokenAMAP{ value: amountBNB }(tokenAddress, amountBNB, minTokens);
         uint256 received = IERC20(tokenAddress).balanceOf(address(this)) - balBefore;
         if (received == 0) revert FourMemeBuyFailed();
         agentTokenBalance[tokenId][tokenAddress] += received;
@@ -604,11 +852,21 @@ contract HunterAgentLogic {
         return (true, abi.encode("FM buy ok"));
     }
 
-    function _handleSellFourMeme(uint256 tokenId, bytes calldata payload) internal returns (bool, bytes memory) {
+    function _handleSellFourMeme(
+        uint256 tokenId,
+        bytes calldata payload
+    ) internal returns (bool, bytes memory) {
         (address tokenAddress, uint256 amountTokens) = abi.decode(payload, (address, uint256));
         if (tokenAddress == address(0)) revert ZeroAddress();
         if (agentTokenBalance[tokenId][tokenAddress] < amountTokens) revert InsufficientTokens();
-        emit TradingActionRequested(tokenId, msg.sender, "sell_fourmeme", tokenAddress, amountTokens, 0);
+        emit TradingActionRequested(
+            tokenId,
+            msg.sender,
+            "sell_fourmeme",
+            tokenAddress,
+            amountTokens,
+            0
+        );
         agentTokenBalance[tokenId][tokenAddress] -= amountTokens;
         _safeApprove(tokenAddress, address(FOURMEME), 0);
         _safeApprove(tokenAddress, address(FOURMEME), amountTokens);
@@ -622,7 +880,9 @@ contract HunterAgentLogic {
         return (true, abi.encode("FM sell ok"));
     }
 
-    function _handleCheckFourMeme(bytes calldata payload) internal view returns (bool, bytes memory) {
+    function _handleCheckFourMeme(
+        bytes calldata payload
+    ) internal view returns (bool, bytes memory) {
         address tokenAddress = abi.decode(payload, (address));
         (bool ok, bytes memory rawResult) = address(FOURMEME_HELPER).staticcall(
             abi.encodeWithSelector(IFourMemeHelper.getTokenInfo.selector, tokenAddress)
@@ -633,14 +893,20 @@ contract HunterAgentLogic {
 
     // ── Activity/Learning (V5 compat) ──
 
-    function _handleRecordActivity(uint256 tokenId, bytes calldata payload) internal returns (bool, bytes memory) {
+    function _handleRecordActivity(
+        uint256 tokenId,
+        bytes calldata payload
+    ) internal returns (bool, bytes memory) {
         uint256 platform = abi.decode(payload, (uint256));
         totalInteractions[tokenId]++;
         emit ActivityRecorded(tokenId, platform, block.timestamp);
         return (true, abi.encode("Activity recorded"));
     }
 
-    function _handleRecordLearning(uint256 tokenId, bytes calldata payload) internal returns (bool, bytes memory) {
+    function _handleRecordLearning(
+        uint256 tokenId,
+        bytes calldata payload
+    ) internal returns (bool, bytes memory) {
         (bytes32 dataHash, uint256 interactionCount) = abi.decode(payload, (bytes32, uint256));
         emit LearningRecorded(tokenId, dataHash, interactionCount, block.timestamp);
         return (true, abi.encode("Learning recorded"));
@@ -658,15 +924,21 @@ contract HunterAgentLogic {
         return positionList[tokenId];
     }
 
-    function getMetrics(uint256 tokenId) external view returns (
-        uint256 _totalActions,
-        uint256 _successfulActions,
-        uint256 _totalTrades,
-        int256 _lifetimePnL,
-        uint256 _totalInteractions,
-        uint256 _lastActive,
-        uint256 _activePositions
-    ) {
+    function getMetrics(
+        uint256 tokenId
+    )
+        external
+        view
+        returns (
+            uint256 _totalActions,
+            uint256 _successfulActions,
+            uint256 _totalTrades,
+            int256 _lifetimePnL,
+            uint256 _totalInteractions,
+            uint256 _lastActive,
+            uint256 _activePositions
+        )
+    {
         return (
             totalActions[tokenId],
             successfulActions[tokenId],
@@ -688,27 +960,60 @@ contract HunterAgentLogic {
         uint256 gasCost = gasUsed * tx.gasprice;
         if (agentBNBBalance[tokenId] < gasCost) revert InsufficientBNB();
         agentBNBBalance[tokenId] -= gasCost;
-        (bool sent, ) = msg.sender.call{value: gasCost}("");
-        if (sent) { emit GasReimbursed(tokenId, msg.sender, gasUsed, gasCost); }
-        else { agentBNBBalance[tokenId] += gasCost; }
+        (bool sent, ) = msg.sender.call{ value: gasCost }("");
+        if (sent) {
+            emit GasReimbursed(tokenId, msg.sender, gasUsed, gasCost);
+        } else {
+            agentBNBBalance[tokenId] += gasCost;
+        }
     }
 
-    function _estimateFourMemeBuy(address tokenAddress, uint256 amountBNB, uint256 slippageBps) internal view returns (uint256) {
+    function _estimateFourMemeBuy(
+        address tokenAddress,
+        uint256 amountBNB,
+        uint256 slippageBps
+    ) internal view returns (uint256) {
         try FOURMEME_HELPER.tryBuy(tokenAddress, 0, amountBNB) returns (
-            address, address, uint256 estimatedAmount, uint256, uint256, uint256, uint256, uint256
+            address,
+            address,
+            uint256 estimatedAmount,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256
         ) {
             if (estimatedAmount == 0) return 0;
             return (estimatedAmount * (BPS_DENOMINATOR - slippageBps)) / BPS_DENOMINATOR;
-        } catch { return 0; }
+        } catch {
+            return 0;
+        }
     }
 
-    function _verifyFourMemeToken(address tokenAddress) internal view returns (bool isFourMeme, bool liquidityAdded) {
+    function _verifyFourMemeToken(
+        address tokenAddress
+    ) internal view returns (bool isFourMeme, bool liquidityAdded) {
         (bool ok, bytes memory rawResult) = address(FOURMEME_HELPER).staticcall(
             abi.encodeWithSelector(IFourMemeHelper.getTokenInfo.selector, tokenAddress)
         );
         if (!ok || rawResult.length == 0) return (false, false);
-        (, address tokenManager,,,,,,,,,,bool _liquidityAdded) =
-            abi.decode(rawResult, (uint256, address, address, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, bool));
+        (, address tokenManager, , , , , , , , , , bool _liquidityAdded) = abi.decode(
+            rawResult,
+            (
+                uint256,
+                address,
+                address,
+                uint256,
+                uint256,
+                uint256,
+                uint256,
+                uint256,
+                uint256,
+                uint256,
+                uint256,
+                bool
+            )
+        );
         isFourMeme = (tokenManager != address(0));
         liquidityAdded = _liquidityAdded;
     }
@@ -730,31 +1035,56 @@ contract HunterAgentLogic {
 
     // ── Swap helpers ──
 
-    function _swapBNBForToken(address tokenAddress, uint256 amountBNB, uint256 slippageBps) internal returns (uint256) {
+    function _swapBNBForToken(
+        address tokenAddress,
+        uint256 amountBNB,
+        uint256 slippageBps
+    ) internal returns (uint256) {
         address[] memory path = new address[](2);
-        path[0] = WBNB; path[1] = tokenAddress;
+        path[0] = WBNB;
+        path[1] = tokenAddress;
         uint256 minOut = _getMinOut(amountBNB, path, slippageBps);
         uint256 balBefore = IERC20(tokenAddress).balanceOf(address(this));
-        ROUTER.swapExactETHForTokensSupportingFeeOnTransferTokens{value: amountBNB}(minOut, path, address(this), block.timestamp + DEADLINE_EXTENSION);
+        ROUTER.swapExactETHForTokensSupportingFeeOnTransferTokens{ value: amountBNB }(
+            minOut,
+            path,
+            address(this),
+            block.timestamp + DEADLINE_EXTENSION
+        );
         uint256 received = IERC20(tokenAddress).balanceOf(address(this)) - balBefore;
         if (received == 0) revert SwapFailed();
         return received;
     }
 
-    function _swapTokenForBNB(address tokenAddress, uint256 amountTokens, uint256 slippageBps) internal returns (uint256) {
+    function _swapTokenForBNB(
+        address tokenAddress,
+        uint256 amountTokens,
+        uint256 slippageBps
+    ) internal returns (uint256) {
         _safeApprove(tokenAddress, address(ROUTER), 0);
         _safeApprove(tokenAddress, address(ROUTER), amountTokens);
         address[] memory path = new address[](2);
-        path[0] = tokenAddress; path[1] = WBNB;
+        path[0] = tokenAddress;
+        path[1] = WBNB;
         uint256 minOut = _getMinOut(amountTokens, path, slippageBps);
         uint256 balBefore = address(this).balance;
-        ROUTER.swapExactTokensForETHSupportingFeeOnTransferTokens(amountTokens, minOut, path, address(this), block.timestamp + DEADLINE_EXTENSION);
+        ROUTER.swapExactTokensForETHSupportingFeeOnTransferTokens(
+            amountTokens,
+            minOut,
+            path,
+            address(this),
+            block.timestamp + DEADLINE_EXTENSION
+        );
         uint256 received = address(this).balance - balBefore;
         if (received == 0) revert SwapFailed();
         return received;
     }
 
-    function _getMinOut(uint256 amountIn, address[] memory path, uint256 slippageBps) internal view returns (uint256) {
+    function _getMinOut(
+        uint256 amountIn,
+        address[] memory path,
+        uint256 slippageBps
+    ) internal view returns (uint256) {
         uint[] memory expected = ROUTER.getAmountsOut(amountIn, path);
         return (expected[1] * (BPS_DENOMINATOR - slippageBps)) / BPS_DENOMINATOR;
     }
@@ -762,15 +1092,21 @@ contract HunterAgentLogic {
     // ── SafeERC20 ──
 
     function _safeTransfer(address token, address to, uint256 amount) internal {
-        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
+        (bool success, bytes memory data) = token.call(
+            abi.encodeWithSelector(IERC20.transfer.selector, to, amount)
+        );
         if (!success || (data.length > 0 && !abi.decode(data, (bool)))) revert TransferFailed();
     }
     function _safeTransferFrom(address token, address from, address to, uint256 amount) internal {
-        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, amount));
+        (bool success, bytes memory data) = token.call(
+            abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, amount)
+        );
         if (!success || (data.length > 0 && !abi.decode(data, (bool)))) revert TransferFailed();
     }
     function _safeApprove(address token, address spender, uint256 amount) internal {
-        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
+        (bool success, bytes memory data) = token.call(
+            abi.encodeWithSelector(IERC20.approve.selector, spender, amount)
+        );
         if (!success || (data.length > 0 && !abi.decode(data, (bool)))) revert ApproveFailed();
     }
 

@@ -57,9 +57,8 @@ for (const c of CONTRACTS) {
 
     it('rejects handleAction from an unauthorized caller', async function () {
       const payload = ethers.utils.defaultAbiCoder.encode(['uint256'], [0]);
-      await expect(
-        logic.connect(stranger).handleAction(1, 'check_balance', payload),
-      ).to.be.reverted;
+      await expect(logic.connect(stranger).handleAction(1, 'check_balance', payload)).to.be
+        .reverted;
     });
 
     it('rejects handleAction while paused', async function () {

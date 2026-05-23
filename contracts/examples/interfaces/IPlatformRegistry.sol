@@ -34,17 +34,17 @@ interface IPlatformRegistry {
         uint256 agentId;
         PlatformType platform;
         ConnectionStatus status;
-        string platformIdentifier;   // e.g. Discord guild ID, Telegram chat ID, Twitter handle, webhook URL
-        string configURI;            // IPFS/vault URI to non-sensitive config
-        bytes32 configHash;          // Hash of config for verification
-        string credentialVaultId;    // Vault ID in VaultPermissionManager for encrypted credentials
+        string platformIdentifier; // e.g. Discord guild ID, Telegram chat ID, Twitter handle, webhook URL
+        string configURI; // IPFS/vault URI to non-sensitive config
+        bytes32 configHash; // Hash of config for verification
+        string credentialVaultId; // Vault ID in VaultPermissionManager for encrypted credentials
         uint256 connectedAt;
         uint256 lastActivityAt;
     }
 
     struct AgentPlatformConfig {
-        uint256 maxConnections;      // Max platform connections per agent (default 10)
-        bool autoReportLearning;     // Auto-report interactions to MerkleTreeLearning
+        uint256 maxConnections; // Max platform connections per agent (default 10)
+        bool autoReportLearning; // Auto-report interactions to MerkleTreeLearning
         uint256 totalConnections;
         uint256 activeConnections;
     }
@@ -108,9 +108,7 @@ interface IPlatformRegistry {
     // Connection Management
     // ──────────────────────────────────────────────
 
-    function connectPlatform(
-        ConnectParams calldata params
-    ) external returns (uint256 connectionId);
+    function connectPlatform(ConnectParams calldata params) external returns (uint256 connectionId);
 
     function disconnectPlatform(uint256 connectionId) external;
 
@@ -144,14 +142,20 @@ interface IPlatformRegistry {
 
     function getConnection(uint256 connectionId) external view returns (PlatformConnection memory);
 
-    function getAgentConnections(uint256 agentId) external view returns (PlatformConnection[] memory);
+    function getAgentConnections(
+        uint256 agentId
+    ) external view returns (PlatformConnection[] memory);
 
     function getAgentConnectionsByPlatform(
         uint256 agentId,
         PlatformType platform
     ) external view returns (PlatformConnection[] memory);
 
-    function getActiveConnections(uint256 agentId) external view returns (PlatformConnection[] memory);
+    function getActiveConnections(
+        uint256 agentId
+    ) external view returns (PlatformConnection[] memory);
 
-    function getAgentPlatformConfig(uint256 agentId) external view returns (AgentPlatformConfig memory);
+    function getAgentPlatformConfig(
+        uint256 agentId
+    ) external view returns (AgentPlatformConfig memory);
 }

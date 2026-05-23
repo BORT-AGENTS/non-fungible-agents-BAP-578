@@ -53,31 +53,43 @@ interface IFourMemeTokenManager {
  * @dev Interface for FourMeme TokenManagerHelper3 (read-only queries)
  */
 interface IFourMemeHelper {
-    function getTokenInfo(address token) external view returns (
-        uint256 version,
-        address tokenManager,
-        address quote,
-        uint256 lastPrice,
-        uint256 tradingFeeRate,
-        uint256 minTradingFee,
-        uint256 launchTime,
-        uint256 offers,
-        uint256 maxOffers,
-        uint256 funds,
-        uint256 maxFunds,
-        bool liquidityAdded
-    );
+    function getTokenInfo(
+        address token
+    )
+        external
+        view
+        returns (
+            uint256 version,
+            address tokenManager,
+            address quote,
+            uint256 lastPrice,
+            uint256 tradingFeeRate,
+            uint256 minTradingFee,
+            uint256 launchTime,
+            uint256 offers,
+            uint256 maxOffers,
+            uint256 funds,
+            uint256 maxFunds,
+            bool liquidityAdded
+        );
 
-    function tryBuy(address token, uint256 amount, uint256 fundAmount) external view returns (
-        address tokenManager,
-        address quote,
-        uint256 estimatedAmount,
-        uint256 estimatedCost,
-        uint256 estimatedFee,
-        uint256 amountMsgValue,
-        uint256 amountApproval,
-        uint256 amountFunds
-    );
+    function tryBuy(
+        address token,
+        uint256 amount,
+        uint256 fundAmount
+    )
+        external
+        view
+        returns (
+            address tokenManager,
+            address quote,
+            uint256 estimatedAmount,
+            uint256 estimatedCost,
+            uint256 estimatedFee,
+            uint256 amountMsgValue,
+            uint256 amountApproval,
+            uint256 amountFunds
+        );
 }
 
 /**
@@ -123,7 +135,6 @@ interface IERC20 {
  *  - Gas reimbursement reverts entire tx if agent vault insufficient
  */
 contract CTOAgentLogic is MetricsTracker {
-
     // ── Custom Errors (bytecode size optimization) ──
 
     // Access
@@ -196,10 +207,10 @@ contract CTOAgentLogic is MetricsTracker {
         IFourMemeHelper(0xF251F83e40a78868FcfA3FA4599Dad6494E46034);
 
     // ── Trading constants ──
-    uint256 public constant MAX_SLIPPAGE_BPS = 3000;   // 30% max
-    uint256 public constant DEADLINE_EXTENSION = 300;   // 5 minutes
-    uint256 public constant BPS_DENOMINATOR = 10000;    // Basis points denominator
-    uint256 public constant MAX_TRANCHES = 10;          // Max take-profit tranches
+    uint256 public constant MAX_SLIPPAGE_BPS = 3000; // 30% max
+    uint256 public constant DEADLINE_EXTENSION = 300; // 5 minutes
+    uint256 public constant BPS_DENOMINATOR = 10000; // Basis points denominator
+    uint256 public constant MAX_TRANCHES = 10; // Max take-profit tranches
 
     // ══════════════════════════════════════════════════════════════
     //  Enums
@@ -207,11 +218,11 @@ contract CTOAgentLogic is MetricsTracker {
 
     /// @dev Campaign lifecycle states
     enum CampaignStatus {
-        INACTIVE,     // 0 — No active campaign
-        EVALUATING,   // 1 — Token under evaluation (thresholds being checked)
-        ACTIVE,       // 2 — Campaign live, position open
-        EXITING,      // 3 — Executing graduated exit tranches
-        COMPLETED     // 4 — All tranches sold or campaign force-ended
+        INACTIVE, // 0 — No active campaign
+        EVALUATING, // 1 — Token under evaluation (thresholds being checked)
+        ACTIVE, // 2 — Campaign live, position open
+        EXITING, // 3 — Executing graduated exit tranches
+        COMPLETED // 4 — All tranches sold or campaign force-ended
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -220,34 +231,34 @@ contract CTOAgentLogic is MetricsTracker {
 
     /// @dev Take-profit tranche configuration and execution state
     struct TakeProfitTranche {
-        uint256 mcapMultiplierBps;  // Market cap multiplier in bps relative to entry (20000 = 2x)
-        uint256 sellPercentBps;     // % of *original* position to sell (2500 = 25%)
-        bool executed;              // Whether this tranche has been sold
-        uint256 executedAt;         // Timestamp when executed (0 if not yet)
-        uint256 bnbReceived;        // BNB received from selling this tranche
+        uint256 mcapMultiplierBps; // Market cap multiplier in bps relative to entry (20000 = 2x)
+        uint256 sellPercentBps; // % of *original* position to sell (2500 = 25%)
+        bool executed; // Whether this tranche has been sold
+        uint256 executedAt; // Timestamp when executed (0 if not yet)
+        uint256 bnbReceived; // BNB received from selling this tranche
     }
 
     /// @dev Campaign evaluation thresholds (per-agent, configurable)
     struct CampaignThresholds {
-        uint256 maxTopHolderPct;    // Max top holder % in bps (500 = 5%)
-        uint256 minMarketCapWei;    // Min market cap to consider
-        uint256 maxMarketCapWei;    // Max market cap to consider (still "low")
-        uint256 maxBuyAmountBnb;    // Max BNB to spend on initial buy
+        uint256 maxTopHolderPct; // Max top holder % in bps (500 = 5%)
+        uint256 minMarketCapWei; // Min market cap to consider
+        uint256 maxMarketCapWei; // Max market cap to consider (still "low")
+        uint256 maxBuyAmountBnb; // Max BNB to spend on initial buy
     }
 
     /// @dev Per-agent campaign state (single campaign at a time)
     struct Campaign {
-        address tokenAddress;         // The FourMeme token being traded
-        CampaignStatus status;        // Current lifecycle state
-        uint256 entryMarketCapWei;    // Market cap at time of buy
-        uint256 entryTokenAmount;     // Tokens acquired (original position size)
+        address tokenAddress; // The FourMeme token being traded
+        CampaignStatus status; // Current lifecycle state
+        uint256 entryMarketCapWei; // Market cap at time of buy
+        uint256 entryTokenAmount; // Tokens acquired (original position size)
         uint256 remainingTokenAmount; // Tokens still held after partial exits
-        uint256 totalBnbSpent;        // BNB spent buying in
-        uint256 totalBnbReceived;     // BNB received from all exits
-        uint256 startedAt;            // Timestamp campaign started
-        uint256 completedAt;          // Timestamp campaign completed (0 if active)
-        uint256 trancheCount;         // Number of take-profit tranches
-        bool isFourMemeBonding;       // true = still on bonding curve at entry
+        uint256 totalBnbSpent; // BNB spent buying in
+        uint256 totalBnbReceived; // BNB received from all exits
+        uint256 startedAt; // Timestamp campaign started
+        uint256 completedAt; // Timestamp campaign completed (0 if active)
+        uint256 trancheCount; // Number of take-profit tranches
+        bool isFourMemeBonding; // true = still on bonding curve at entry
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -328,18 +339,43 @@ contract CTOAgentLogic is MetricsTracker {
     event Unpaused(address account);
     event SlippageUpdated(uint256 oldBps, uint256 newBps);
     event EmergencyWithdraw(address token, uint256 amount, address to);
-    event FourMemeBuy(uint256 indexed tokenId, address token, uint256 bnbSpent, uint256 tokensReceived);
-    event FourMemeSell(uint256 indexed tokenId, address token, uint256 tokensSold, uint256 bnbReceived);
-    event AgentOwnerWithdraw(uint256 indexed tokenId, address indexed agentOwner, address token, uint256 amount);
+    event FourMemeBuy(
+        uint256 indexed tokenId,
+        address token,
+        uint256 bnbSpent,
+        uint256 tokensReceived
+    );
+    event FourMemeSell(
+        uint256 indexed tokenId,
+        address token,
+        uint256 tokensSold,
+        uint256 bnbReceived
+    );
+    event AgentOwnerWithdraw(
+        uint256 indexed tokenId,
+        address indexed agentOwner,
+        address token,
+        uint256 amount
+    );
     event Bap578Updated(address indexed oldAddress, address indexed newAddress);
-    event GasReimbursed(uint256 indexed tokenId, address indexed caller, uint256 gasUsed, uint256 gasCost);
+    event GasReimbursed(
+        uint256 indexed tokenId,
+        address indexed caller,
+        uint256 gasUsed,
+        uint256 gasCost
+    );
 
     // ══════════════════════════════════════════════════════════════
     //  Events — Activity/Learning (from V5)
     // ══════════════════════════════════════════════════════════════
 
     event ActivityRecorded(uint256 indexed tokenId, uint256 platform, uint256 timestamp);
-    event LearningRecorded(uint256 indexed tokenId, bytes32 dataHash, uint256 interactionCount, uint256 timestamp);
+    event LearningRecorded(
+        uint256 indexed tokenId,
+        bytes32 dataHash,
+        uint256 interactionCount,
+        uint256 timestamp
+    );
 
     // ══════════════════════════════════════════════════════════════
     //  Events — CTO Campaign
@@ -360,11 +396,7 @@ contract CTOAgentLogic is MetricsTracker {
         uint256 oracleTopHolderPct,
         bool passed
     );
-    event CampaignStarted(
-        uint256 indexed tokenId,
-        address indexed tokenAddress,
-        uint256 timestamp
-    );
+    event CampaignStarted(uint256 indexed tokenId, address indexed tokenAddress, uint256 timestamp);
     event CampaignBuyExecuted(
         uint256 indexed tokenId,
         address indexed tokenAddress,
@@ -549,7 +581,11 @@ contract CTOAgentLogic is MetricsTracker {
         emit Deposited(tokenId, address(0), msg.value);
     }
 
-    function depositToken(uint256 tokenId, address token, uint256 amount) external whenNotPaused nonReentrant {
+    function depositToken(
+        uint256 tokenId,
+        address token,
+        uint256 amount
+    ) external whenNotPaused nonReentrant {
         if (amount == 0) revert ZeroAmount();
         if (token == address(0)) revert ZeroAddress();
         if (address(bap578) != address(0)) {
@@ -565,16 +601,25 @@ contract CTOAgentLogic is MetricsTracker {
         emit Deposited(tokenId, token, received);
     }
 
-    function withdrawBNB(uint256 tokenId, uint256 amount, address payable to) external onlyOwner nonReentrant {
+    function withdrawBNB(
+        uint256 tokenId,
+        uint256 amount,
+        address payable to
+    ) external onlyOwner nonReentrant {
         if (agentBNBBalance[tokenId] < amount) revert InsufficientBNB();
         if (to == address(0)) revert ZeroAddress();
         agentBNBBalance[tokenId] -= amount;
-        (bool sent, ) = to.call{value: amount}("");
+        (bool sent, ) = to.call{ value: amount }("");
         if (!sent) revert TransferFailed();
         emit Withdrawn(tokenId, address(0), amount, to);
     }
 
-    function withdrawToken(uint256 tokenId, address token, uint256 amount, address to) external onlyOwner nonReentrant {
+    function withdrawToken(
+        uint256 tokenId,
+        address token,
+        uint256 amount,
+        address to
+    ) external onlyOwner nonReentrant {
         if (agentTokenBalance[tokenId][token] < amount) revert InsufficientTokens();
         if (to == address(0)) revert ZeroAddress();
         agentTokenBalance[tokenId][token] -= amount;
@@ -584,26 +629,23 @@ contract CTOAgentLogic is MetricsTracker {
 
     // ── NFT Owner Withdrawals ──
 
-    function agentOwnerWithdrawBNB(uint256 tokenId, uint256 amount)
-        external
-        onlyAgentOwner(tokenId)
-        whenNotPaused
-        nonReentrant
-    {
+    function agentOwnerWithdrawBNB(
+        uint256 tokenId,
+        uint256 amount
+    ) external onlyAgentOwner(tokenId) whenNotPaused nonReentrant {
         if (amount == 0) revert ZeroAmount();
         if (agentBNBBalance[tokenId] < amount) revert InsufficientBNB();
         agentBNBBalance[tokenId] -= amount;
-        (bool sent, ) = payable(msg.sender).call{value: amount}("");
+        (bool sent, ) = payable(msg.sender).call{ value: amount }("");
         if (!sent) revert TransferFailed();
         emit AgentOwnerWithdraw(tokenId, msg.sender, address(0), amount);
     }
 
-    function agentOwnerWithdrawToken(uint256 tokenId, address token, uint256 amount)
-        external
-        onlyAgentOwner(tokenId)
-        whenNotPaused
-        nonReentrant
-    {
+    function agentOwnerWithdrawToken(
+        uint256 tokenId,
+        address token,
+        uint256 amount
+    ) external onlyAgentOwner(tokenId) whenNotPaused nonReentrant {
         if (amount == 0) revert ZeroAmount();
         if (token == address(0)) revert ZeroAddress();
         if (agentTokenBalance[tokenId][token] < amount) revert InsufficientTokens();
@@ -621,7 +663,7 @@ contract CTOAgentLogic is MetricsTracker {
         if (contractBal == 0) revert NothingToRecover();
         paused = true; // Auto-pause to prevent stale balance operations
         emit Paused(msg.sender);
-        (bool sent, ) = to.call{value: contractBal}("");
+        (bool sent, ) = to.call{ value: contractBal }("");
         if (!sent) revert TransferFailed();
         emit EmergencyWithdraw(address(0), contractBal, to);
     }
@@ -653,7 +695,13 @@ contract CTOAgentLogic is MetricsTracker {
         uint256 tokenId,
         string calldata action,
         bytes calldata payload
-    ) external onlyAuthorized whenNotPaused nonReentrant returns (bool success, bytes memory result) {
+    )
+        external
+        onlyAuthorized
+        whenNotPaused
+        nonReentrant
+        returns (bool success, bytes memory result)
+    {
         uint256 gasStart = gasleft();
         bytes32 actionHash = keccak256(bytes(action));
 
@@ -675,7 +723,7 @@ contract CTOAgentLogic is MetricsTracker {
         } else if (actionHash == keccak256(bytes("get_campaign_status"))) {
             (success, result) = _handleGetCampaignStatus(tokenId);
 
-        // ── Trading Actions (from V5) ──
+            // ── Trading Actions (from V5) ──
         } else if (actionHash == keccak256(bytes("buy_token"))) {
             (success, result) = _handleBuyToken(tokenId, payload);
         } else if (actionHash == keccak256(bytes("sell_token"))) {
@@ -691,7 +739,7 @@ contract CTOAgentLogic is MetricsTracker {
         } else if (actionHash == keccak256(bytes("check_fourmeme"))) {
             (success, result) = _handleCheckFourMeme(payload);
 
-        // ── Social/X Actions ──
+            // ── Social/X Actions ──
         } else if (actionHash == keccak256(bytes("post_content"))) {
             (success, result) = _handlePostContent(tokenId, payload);
         } else if (actionHash == keccak256(bytes("schedule_post"))) {
@@ -705,12 +753,11 @@ contract CTOAgentLogic is MetricsTracker {
         } else if (actionHash == keccak256(bytes("report_holders"))) {
             (success, result) = _handleReportHolders(tokenId, payload);
 
-        // ── Activity/Learning (from V5) ──
+            // ── Activity/Learning (from V5) ──
         } else if (actionHash == keccak256(bytes("record_activity"))) {
             (success, result) = _handleRecordActivity(tokenId, payload);
         } else if (actionHash == keccak256(bytes("record_learning"))) {
             (success, result) = _handleRecordLearning(tokenId, payload);
-
         } else {
             (success, result) = (false, abi.encode("Unknown action"));
         }
@@ -719,8 +766,7 @@ contract CTOAgentLogic is MetricsTracker {
 
         // On-chain metrics — increment counters and update lastActiveTimestamp.
         // Inlined trade-action detection avoids extra function dispatch overhead.
-        bool _isTrade =
-            actionHash == keccak256(bytes("execute_buy")) ||
+        bool _isTrade = actionHash == keccak256(bytes("execute_buy")) ||
             actionHash == keccak256(bytes("execute_exit")) ||
             actionHash == keccak256(bytes("buy_token")) ||
             actionHash == keccak256(bytes("sell_token")) ||
@@ -746,7 +792,8 @@ contract CTOAgentLogic is MetricsTracker {
         bytes calldata payload
     ) internal returns (bool, bytes memory) {
         CampaignStatus currentStatus = campaigns[tokenId].status;
-        if (currentStatus != CampaignStatus.INACTIVE && currentStatus != CampaignStatus.COMPLETED) revert CampaignActive();
+        if (currentStatus != CampaignStatus.INACTIVE && currentStatus != CampaignStatus.COMPLETED)
+            revert CampaignActive();
 
         // Decode scalar params and arrays separately to avoid stack-too-deep
         (
@@ -756,7 +803,11 @@ contract CTOAgentLogic is MetricsTracker {
             uint256 maxBuyAmountBnb,
             uint256 trancheCount,
             ,
-        ) = abi.decode(payload, (uint256, uint256, uint256, uint256, uint256, uint256[], uint256[]));
+
+        ) = abi.decode(
+                payload,
+                (uint256, uint256, uint256, uint256, uint256, uint256[], uint256[])
+            );
 
         if (maxTopHolderPct == 0 || maxTopHolderPct > BPS_DENOMINATOR) revert InvalidThresholds();
         if (maxMarketCapWei <= minMarketCapWei) revert InvalidThresholds();
@@ -795,7 +846,14 @@ contract CTOAgentLogic is MetricsTracker {
             isFourMemeBonding: false
         });
 
-        emit CampaignConfigured(tokenId, maxTopHolderPct, minMarketCapWei, maxMarketCapWei, maxBuyAmountBnb, trancheCount);
+        emit CampaignConfigured(
+            tokenId,
+            maxTopHolderPct,
+            minMarketCapWei,
+            maxMarketCapWei,
+            maxBuyAmountBnb,
+            trancheCount
+        );
         return (true, abi.encode("Configured"));
     }
 
@@ -805,10 +863,8 @@ contract CTOAgentLogic is MetricsTracker {
         uint256 trancheCount,
         bytes calldata payload
     ) internal {
-        (,,,,,
-            uint256[] memory mcapMultipliersBps,
-            uint256[] memory sellPercentsBps
-        ) = abi.decode(payload, (uint256, uint256, uint256, uint256, uint256, uint256[], uint256[]));
+        (, , , , , uint256[] memory mcapMultipliersBps, uint256[] memory sellPercentsBps) = abi
+            .decode(payload, (uint256, uint256, uint256, uint256, uint256, uint256[], uint256[]));
 
         if (mcapMultipliersBps.length != trancheCount) revert ArrayLengthMismatch();
         if (sellPercentsBps.length != trancheCount) revert ArrayLengthMismatch();
@@ -844,8 +900,8 @@ contract CTOAgentLogic is MetricsTracker {
         if (campaigns[tokenId].status != CampaignStatus.INACTIVE) revert CampaignNotInactive();
         if (campaignThresholds[tokenId].maxMarketCapWei == 0) revert ThresholdsNotConfigured();
 
-        (address tokenAddress, uint256 oracleMarketCapWei, uint256 oracleTopHolderPctBps) =
-            abi.decode(payload, (address, uint256, uint256));
+        (address tokenAddress, uint256 oracleMarketCapWei, uint256 oracleTopHolderPctBps) = abi
+            .decode(payload, (address, uint256, uint256));
 
         if (tokenAddress == address(0)) revert ZeroAddress();
 
@@ -859,14 +915,22 @@ contract CTOAgentLogic is MetricsTracker {
         // Evaluate against thresholds
         bool holderCheck = oracleTopHolderPctBps <= campaignThresholds[tokenId].maxTopHolderPct;
         bool mcapCheck = oracleMarketCapWei >= campaignThresholds[tokenId].minMarketCapWei &&
-                         oracleMarketCapWei <= campaignThresholds[tokenId].maxMarketCapWei;
+            oracleMarketCapWei <= campaignThresholds[tokenId].maxMarketCapWei;
 
-        emit TokenEvaluated(tokenId, tokenAddress, oracleMarketCapWei, oracleTopHolderPctBps, holderCheck && mcapCheck);
+        emit TokenEvaluated(
+            tokenId,
+            tokenAddress,
+            oracleMarketCapWei,
+            oracleTopHolderPctBps,
+            holderCheck && mcapCheck
+        );
 
         if (!(holderCheck && mcapCheck)) {
             // Reset bonding flag since evaluation failed
             campaigns[tokenId].isFourMemeBonding = false;
-            string memory reason = !holderCheck ? "Top holder too concentrated" : "Market cap out of range";
+            string memory reason = !holderCheck
+                ? "Top holder too concentrated"
+                : "Market cap out of range";
             return (true, abi.encode(false, reason));
         }
 
@@ -904,8 +968,10 @@ contract CTOAgentLogic is MetricsTracker {
         if (campaign.status != CampaignStatus.ACTIVE) revert CampaignNotActive();
         if (campaign.entryTokenAmount != 0) revert AlreadyBought();
 
-        (uint256 amountBNB, uint256 slippageBps, uint256 currentMarketCapWei) =
-            abi.decode(payload, (uint256, uint256, uint256));
+        (uint256 amountBNB, uint256 slippageBps, uint256 currentMarketCapWei) = abi.decode(
+            payload,
+            (uint256, uint256, uint256)
+        );
 
         CampaignThresholds storage thresholds = campaignThresholds[tokenId];
         if (amountBNB > thresholds.maxBuyAmountBnb) revert MaxBuyExceeded();
@@ -928,7 +994,7 @@ contract CTOAgentLogic is MetricsTracker {
             uint256 balBefore = IERC20(tokenAddress).balanceOf(address(this));
             // HIGH-5 fix: estimate tokens via tryBuy and apply slippage tolerance
             uint256 minTokens = _estimateFourMemeBuy(tokenAddress, amountBNB, slippageBps);
-            FOURMEME.buyTokenAMAP{value: amountBNB}(tokenAddress, amountBNB, minTokens);
+            FOURMEME.buyTokenAMAP{ value: amountBNB }(tokenAddress, amountBNB, minTokens);
             tokensReceived = IERC20(tokenAddress).balanceOf(address(this)) - balBefore;
             if (tokensReceived == 0) revert FourMemeBuyFailed();
             emit FourMemeBuy(tokenId, tokenAddress, amountBNB, tokensReceived);
@@ -946,7 +1012,13 @@ contract CTOAgentLogic is MetricsTracker {
         campaign.remainingTokenAmount = tokensReceived;
         campaign.totalBnbSpent = amountBNB;
 
-        emit CampaignBuyExecuted(tokenId, tokenAddress, amountBNB, tokensReceived, currentMarketCapWei);
+        emit CampaignBuyExecuted(
+            tokenId,
+            tokenAddress,
+            amountBNB,
+            tokensReceived,
+            currentMarketCapWei
+        );
         return (true, abi.encode("Buy executed", tokensReceived));
     }
 
@@ -957,13 +1029,15 @@ contract CTOAgentLogic is MetricsTracker {
         bytes calldata payload
     ) internal returns (bool, bytes memory) {
         Campaign storage campaign = campaigns[tokenId];
-        if (campaign.status != CampaignStatus.ACTIVE && campaign.status != CampaignStatus.EXITING) revert CampaignNotActive();
+        if (campaign.status != CampaignStatus.ACTIVE && campaign.status != CampaignStatus.EXITING)
+            revert CampaignNotActive();
         if (campaign.entryMarketCapWei == 0) revert NoEntryRecorded();
 
         uint256 currentMarketCapWei = abi.decode(payload, (uint256));
 
         // Calculate current multiplier in bps
-        uint256 currentMultiplierBps = (currentMarketCapWei * BPS_DENOMINATOR) / campaign.entryMarketCapWei;
+        uint256 currentMultiplierBps = (currentMarketCapWei * BPS_DENOMINATOR) /
+            campaign.entryMarketCapWei;
 
         // Find first unexecuted tranche whose threshold is met
         uint256 trancheCount = campaign.trancheCount;
@@ -983,7 +1057,13 @@ contract CTOAgentLogic is MetricsTracker {
             _setCampaignStatus(tokenId, CampaignStatus.EXITING);
         }
 
-        emit ExitConditionChecked(tokenId, currentMarketCapWei, campaign.entryMarketCapWei, nextTrancheIndex, triggered);
+        emit ExitConditionChecked(
+            tokenId,
+            currentMarketCapWei,
+            campaign.entryMarketCapWei,
+            nextTrancheIndex,
+            triggered
+        );
         return (true, abi.encode(nextTrancheIndex, triggered));
     }
 
@@ -994,7 +1074,8 @@ contract CTOAgentLogic is MetricsTracker {
         bytes calldata payload
     ) internal returns (bool, bytes memory) {
         Campaign storage campaign = campaigns[tokenId];
-        if (campaign.status != CampaignStatus.ACTIVE && campaign.status != CampaignStatus.EXITING) revert CampaignNotActive();
+        if (campaign.status != CampaignStatus.ACTIVE && campaign.status != CampaignStatus.EXITING)
+            revert CampaignNotActive();
 
         (uint256 trancheIndex, uint256 slippageBps) = abi.decode(payload, (uint256, uint256));
 
@@ -1050,7 +1131,13 @@ contract CTOAgentLogic is MetricsTracker {
         campaign.remainingTokenAmount -= sellAmount;
         campaign.totalBnbReceived += bnbReceived;
 
-        emit TrancheExecuted(tokenId, trancheIndex, sellAmount, bnbReceived, tranche.mcapMultiplierBps);
+        emit TrancheExecuted(
+            tokenId,
+            trancheIndex,
+            sellAmount,
+            bnbReceived,
+            tranche.mcapMultiplierBps
+        );
 
         // Check if all tranches executed → auto-complete
         if (_checkAllTranchesExecuted(tokenId)) {
@@ -1059,9 +1146,12 @@ contract CTOAgentLogic is MetricsTracker {
             int256 pnl = int256(campaign.totalBnbReceived) - int256(campaign.totalBnbSpent);
             _setCampaignStatus(tokenId, CampaignStatus.COMPLETED);
             emit CampaignEnded(
-                tokenId, tokenAddress,
-                campaign.totalBnbSpent, campaign.totalBnbReceived,
-                pnl, block.timestamp
+                tokenId,
+                tokenAddress,
+                campaign.totalBnbSpent,
+                campaign.totalBnbReceived,
+                pnl,
+                block.timestamp
             );
         }
 
@@ -1075,7 +1165,10 @@ contract CTOAgentLogic is MetricsTracker {
         bytes calldata payload
     ) internal returns (bool, bytes memory) {
         Campaign storage campaign = campaigns[tokenId];
-        if (campaign.status == CampaignStatus.INACTIVE || campaign.status == CampaignStatus.COMPLETED) revert NoCampaignToEnd();
+        if (
+            campaign.status == CampaignStatus.INACTIVE ||
+            campaign.status == CampaignStatus.COMPLETED
+        ) revert NoCampaignToEnd();
 
         uint256 slippageBps = abi.decode(payload, (uint256));
         if (slippageBps == 0) slippageBps = defaultSlippageBps;
@@ -1122,17 +1215,18 @@ contract CTOAgentLogic is MetricsTracker {
         _setCampaignStatus(tokenId, CampaignStatus.COMPLETED);
 
         emit CampaignEnded(
-            tokenId, tokenAddress,
-            campaign.totalBnbSpent, campaign.totalBnbReceived,
-            pnl, block.timestamp
+            tokenId,
+            tokenAddress,
+            campaign.totalBnbSpent,
+            campaign.totalBnbReceived,
+            pnl,
+            block.timestamp
         );
         return (true, abi.encode("Campaign ended", pnl));
     }
 
     /// @dev Return full campaign state (read-only action).
-    function _handleGetCampaignStatus(
-        uint256 tokenId
-    ) internal view returns (bool, bytes memory) {
+    function _handleGetCampaignStatus(uint256 tokenId) internal view returns (bool, bytes memory) {
         Campaign storage campaign = campaigns[tokenId];
         CampaignThresholds storage thresholds = campaignThresholds[tokenId];
 
@@ -1165,15 +1259,24 @@ contract CTOAgentLogic is MetricsTracker {
         uint256 tokenId,
         bytes calldata payload
     ) internal returns (bool, bytes memory) {
-        (address tokenAddress, uint256 amountBNB, uint256 slippageBps) =
-            abi.decode(payload, (address, uint256, uint256));
+        (address tokenAddress, uint256 amountBNB, uint256 slippageBps) = abi.decode(
+            payload,
+            (address, uint256, uint256)
+        );
 
         if (tokenAddress == address(0)) revert ZeroAddress();
         if (slippageBps == 0) slippageBps = defaultSlippageBps;
         if (slippageBps > MAX_SLIPPAGE_BPS) revert InvalidSlippage();
         if (agentBNBBalance[tokenId] < amountBNB) revert InsufficientBNB();
 
-        emit TradingActionRequested(tokenId, msg.sender, "buy_token", tokenAddress, amountBNB, slippageBps);
+        emit TradingActionRequested(
+            tokenId,
+            msg.sender,
+            "buy_token",
+            tokenAddress,
+            amountBNB,
+            slippageBps
+        );
         agentBNBBalance[tokenId] -= amountBNB;
 
         uint256 tokensReceived = _swapBNBForToken(tokenAddress, amountBNB, slippageBps);
@@ -1187,15 +1290,24 @@ contract CTOAgentLogic is MetricsTracker {
         uint256 tokenId,
         bytes calldata payload
     ) internal returns (bool, bytes memory) {
-        (address tokenAddress, uint256 amountTokens, uint256 slippageBps) =
-            abi.decode(payload, (address, uint256, uint256));
+        (address tokenAddress, uint256 amountTokens, uint256 slippageBps) = abi.decode(
+            payload,
+            (address, uint256, uint256)
+        );
 
         if (tokenAddress == address(0)) revert ZeroAddress();
         if (slippageBps == 0) slippageBps = defaultSlippageBps;
         if (slippageBps > MAX_SLIPPAGE_BPS) revert InvalidSlippage();
         if (agentTokenBalance[tokenId][tokenAddress] < amountTokens) revert InsufficientTokens();
 
-        emit TradingActionRequested(tokenId, msg.sender, "sell_token", tokenAddress, amountTokens, slippageBps);
+        emit TradingActionRequested(
+            tokenId,
+            msg.sender,
+            "sell_token",
+            tokenAddress,
+            amountTokens,
+            slippageBps
+        );
         agentTokenBalance[tokenId][tokenAddress] -= amountTokens;
 
         uint256 bnbReceived = _swapTokenForBNB(tokenAddress, amountTokens, slippageBps);
@@ -1217,11 +1329,11 @@ contract CTOAgentLogic is MetricsTracker {
         return (true, abi.encode(bnbBal, tokenBal));
     }
 
-    function _handleGetPrice(
-        bytes calldata payload
-    ) internal view returns (bool, bytes memory) {
-        (address tokenAddress, uint256 amountIn, bool isBuyQuote) =
-            abi.decode(payload, (address, uint256, bool));
+    function _handleGetPrice(bytes calldata payload) internal view returns (bool, bytes memory) {
+        (address tokenAddress, uint256 amountIn, bool isBuyQuote) = abi.decode(
+            payload,
+            (address, uint256, bool)
+        );
 
         address[] memory path = new address[](2);
         if (isBuyQuote) {
@@ -1240,17 +1352,26 @@ contract CTOAgentLogic is MetricsTracker {
         uint256 tokenId,
         bytes calldata payload
     ) internal returns (bool, bytes memory) {
-        (address tokenAddress, uint256 amountBNB, uint256 minTokens) =
-            abi.decode(payload, (address, uint256, uint256));
+        (address tokenAddress, uint256 amountBNB, uint256 minTokens) = abi.decode(
+            payload,
+            (address, uint256, uint256)
+        );
 
         if (tokenAddress == address(0)) revert ZeroAddress();
         if (agentBNBBalance[tokenId] < amountBNB) revert InsufficientBNB();
 
-        emit TradingActionRequested(tokenId, msg.sender, "buy_fourmeme", tokenAddress, amountBNB, 0);
+        emit TradingActionRequested(
+            tokenId,
+            msg.sender,
+            "buy_fourmeme",
+            tokenAddress,
+            amountBNB,
+            0
+        );
         agentBNBBalance[tokenId] -= amountBNB;
 
         uint256 balBefore = IERC20(tokenAddress).balanceOf(address(this));
-        FOURMEME.buyTokenAMAP{value: amountBNB}(tokenAddress, amountBNB, minTokens);
+        FOURMEME.buyTokenAMAP{ value: amountBNB }(tokenAddress, amountBNB, minTokens);
         uint256 received = IERC20(tokenAddress).balanceOf(address(this)) - balBefore;
         if (received == 0) revert FourMemeBuyFailed();
 
@@ -1264,13 +1385,19 @@ contract CTOAgentLogic is MetricsTracker {
         uint256 tokenId,
         bytes calldata payload
     ) internal returns (bool, bytes memory) {
-        (address tokenAddress, uint256 amountTokens) =
-            abi.decode(payload, (address, uint256));
+        (address tokenAddress, uint256 amountTokens) = abi.decode(payload, (address, uint256));
 
         if (tokenAddress == address(0)) revert ZeroAddress();
         if (agentTokenBalance[tokenId][tokenAddress] < amountTokens) revert InsufficientTokens();
 
-        emit TradingActionRequested(tokenId, msg.sender, "sell_fourmeme", tokenAddress, amountTokens, 0);
+        emit TradingActionRequested(
+            tokenId,
+            msg.sender,
+            "sell_fourmeme",
+            tokenAddress,
+            amountTokens,
+            0
+        );
         agentTokenBalance[tokenId][tokenAddress] -= amountTokens;
 
         _safeApprove(tokenAddress, address(FOURMEME), 0);
@@ -1311,15 +1438,21 @@ contract CTOAgentLogic is MetricsTracker {
         uint256 tokenId,
         bytes calldata payload
     ) internal returns (bool, bytes memory) {
-        (uint8 platform, , ) =
-            abi.decode(payload, (uint8, string, string));
+        (uint8 platform, , ) = abi.decode(payload, (uint8, string, string));
 
         emit SocialActionRequested(tokenId, msg.sender, "post_content", platform, "new_post");
 
         bytes32 postId = _generatePostId(tokenId, platform, block.timestamp);
         totalPosts[tokenId]++;
 
-        emit SocialActionCompleted(tokenId, "post_content", platform, true, postId, "Content posted");
+        emit SocialActionCompleted(
+            tokenId,
+            "post_content",
+            platform,
+            true,
+            postId,
+            "Content posted"
+        );
         return (true, abi.encode(postId, platform));
     }
 
@@ -1328,19 +1461,30 @@ contract CTOAgentLogic is MetricsTracker {
         uint256 tokenId,
         bytes calldata payload
     ) internal returns (bool, bytes memory) {
-        (uint8 platform, string memory content, uint256 scheduledTime) =
-            abi.decode(payload, (uint8, string, uint256));
+        (uint8 platform, string memory content, uint256 scheduledTime) = abi.decode(
+            payload,
+            (uint8, string, uint256)
+        );
 
         if (scheduledTime <= block.timestamp) revert ScheduleInPast();
 
         emit SocialActionRequested(tokenId, msg.sender, "schedule_post", platform, "scheduled");
 
-        bytes32 scheduleHash = keccak256(abi.encodePacked(tokenId, platform, content, scheduledTime));
+        bytes32 scheduleHash = keccak256(
+            abi.encodePacked(tokenId, platform, content, scheduledTime)
+        );
         scheduledPosts[scheduleHash] = true;
 
         bytes32 postId = _generatePostId(tokenId, platform, scheduledTime);
 
-        emit SocialActionCompleted(tokenId, "schedule_post", platform, true, postId, "Post scheduled");
+        emit SocialActionCompleted(
+            tokenId,
+            "schedule_post",
+            platform,
+            true,
+            postId,
+            "Post scheduled"
+        );
         return (true, abi.encode(postId, platform, scheduledTime));
     }
 
@@ -1358,7 +1502,14 @@ contract CTOAgentLogic is MetricsTracker {
         totalEngagements[tokenId]++;
 
         bytes32 postId = keccak256(bytes(postIdStr));
-        emit SocialActionCompleted(tokenId, "track_engagement", platform, true, postId, "Engagement tracked");
+        emit SocialActionCompleted(
+            tokenId,
+            "track_engagement",
+            platform,
+            true,
+            postId,
+            "Engagement tracked"
+        );
         return (true, abi.encode(postId, platform));
     }
 
@@ -1370,7 +1521,14 @@ contract CTOAgentLogic is MetricsTracker {
         (uint8 platform, string memory keyword) = abi.decode(payload, (uint8, string));
 
         emit SocialActionRequested(tokenId, msg.sender, "monitor_mentions", platform, keyword);
-        emit SocialActionCompleted(tokenId, "monitor_mentions", platform, true, bytes32(0), "Mentions monitored");
+        emit SocialActionCompleted(
+            tokenId,
+            "monitor_mentions",
+            platform,
+            true,
+            bytes32(0),
+            "Mentions monitored"
+        );
         return (true, abi.encode(platform, keyword));
     }
 
@@ -1380,8 +1538,10 @@ contract CTOAgentLogic is MetricsTracker {
         uint256 tokenId,
         bytes calldata payload
     ) internal returns (bool, bytes memory) {
-        (uint8 platform, string memory targetPostId, ) =
-            abi.decode(payload, (uint8, string, string));
+        (uint8 platform, string memory targetPostId, ) = abi.decode(
+            payload,
+            (uint8, string, string)
+        );
 
         emit SocialActionRequested(tokenId, msg.sender, "raid_post", platform, targetPostId);
         emit RaidExecuted(tokenId, platform, targetPostId, block.timestamp);
@@ -1401,10 +1561,18 @@ contract CTOAgentLogic is MetricsTracker {
         uint256 tokenId,
         bytes calldata payload
     ) internal returns (bool, bytes memory) {
-        (uint256 topHolderCount, uint256 totalHolders, uint256 topHolderPctBps) =
-            abi.decode(payload, (uint256, uint256, uint256));
+        (uint256 topHolderCount, uint256 totalHolders, uint256 topHolderPctBps) = abi.decode(
+            payload,
+            (uint256, uint256, uint256)
+        );
 
-        emit HolderDistributionReported(tokenId, topHolderCount, totalHolders, topHolderPctBps, block.timestamp);
+        emit HolderDistributionReported(
+            tokenId,
+            topHolderCount,
+            totalHolders,
+            topHolderPctBps,
+            block.timestamp
+        );
         return (true, abi.encode(topHolderCount, totalHolders, topHolderPctBps));
     }
 
@@ -1438,7 +1606,10 @@ contract CTOAgentLogic is MetricsTracker {
         return campaigns[tokenId];
     }
 
-    function getTranche(uint256 tokenId, uint256 trancheIndex) external view returns (TakeProfitTranche memory) {
+    function getTranche(
+        uint256 tokenId,
+        uint256 trancheIndex
+    ) external view returns (TakeProfitTranche memory) {
         if (trancheIndex >= campaigns[tokenId].trancheCount) revert InvalidTrancheIndex(); // LOW-6 fix
         return campaignTranches[tokenId][trancheIndex];
     }
@@ -1456,7 +1627,9 @@ contract CTOAgentLogic is MetricsTracker {
         return campaignThresholds[tokenId];
     }
 
-    function calculatePnL(uint256 tokenId) external view returns (int256 realizedPnl, uint256 remainingTokens) {
+    function calculatePnL(
+        uint256 tokenId
+    ) external view returns (int256 realizedPnl, uint256 remainingTokens) {
         Campaign storage campaign = campaigns[tokenId];
         realizedPnl = int256(campaign.totalBnbReceived) - int256(campaign.totalBnbSpent);
         remainingTokens = campaign.remainingTokenAmount;
@@ -1476,7 +1649,7 @@ contract CTOAgentLogic is MetricsTracker {
         if (agentBNBBalance[tokenId] < gasCost) revert InsufficientBNB();
 
         agentBNBBalance[tokenId] -= gasCost;
-        (bool sent, ) = msg.sender.call{value: gasCost}("");
+        (bool sent, ) = msg.sender.call{ value: gasCost }("");
         if (sent) {
             emit GasReimbursed(tokenId, msg.sender, gasUsed, gasCost);
         } else {
@@ -1485,9 +1658,20 @@ contract CTOAgentLogic is MetricsTracker {
     }
 
     /// @dev HIGH-5 fix: Estimate FourMeme buy amount with slippage protection
-    function _estimateFourMemeBuy(address tokenAddress, uint256 amountBNB, uint256 slippageBps) internal view returns (uint256) {
+    function _estimateFourMemeBuy(
+        address tokenAddress,
+        uint256 amountBNB,
+        uint256 slippageBps
+    ) internal view returns (uint256) {
         try FOURMEME_HELPER.tryBuy(tokenAddress, 0, amountBNB) returns (
-            address, address, uint256 estimatedAmount, uint256, uint256, uint256, uint256, uint256
+            address,
+            address,
+            uint256 estimatedAmount,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256
         ) {
             if (estimatedAmount == 0) return 0;
             return (estimatedAmount * (BPS_DENOMINATOR - slippageBps)) / BPS_DENOMINATOR;
@@ -1497,26 +1681,44 @@ contract CTOAgentLogic is MetricsTracker {
     }
 
     /// @dev Verify a token was launched on FourMeme
-    function _verifyFourMemeToken(address tokenAddress) internal view returns (bool isFourMeme, bool liquidityAdded) {
+    function _verifyFourMemeToken(
+        address tokenAddress
+    ) internal view returns (bool isFourMeme, bool liquidityAdded) {
         (bool ok, bytes memory rawResult) = address(FOURMEME_HELPER).staticcall(
             abi.encodeWithSelector(IFourMemeHelper.getTokenInfo.selector, tokenAddress)
         );
         if (!ok || rawResult.length == 0) return (false, false);
 
         (
-            ,                    // version
+            , // version
             address tokenManager,
-            ,                    // quote
-            ,                    // lastPrice
-            ,                    // tradingFeeRate
-            ,                    // minTradingFee
-            ,                    // launchTime
-            ,                    // offers
-            ,                    // maxOffers
-            ,                    // funds
-            ,                    // maxFunds
+            , // quote
+            , // lastPrice
+            , // tradingFeeRate
+            , // minTradingFee
+            , // launchTime
+            , // offers
+            , // maxOffers
+            , // funds
+            , // maxFunds
             bool _liquidityAdded
-        ) = abi.decode(rawResult, (uint256, address, address, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, bool));
+        ) = abi.decode(
+                rawResult,
+                (
+                    uint256,
+                    address,
+                    address,
+                    uint256,
+                    uint256,
+                    uint256,
+                    uint256,
+                    uint256,
+                    uint256,
+                    uint256,
+                    uint256,
+                    bool
+                )
+            );
 
         isFourMeme = (tokenManager != address(0));
         liquidityAdded = _liquidityAdded;
@@ -1541,13 +1743,21 @@ contract CTOAgentLogic is MetricsTracker {
     }
 
     /// @dev Generate a deterministic post ID as bytes32 (cheaper than string conversion)
-    function _generatePostId(uint256 tokenId, uint8 platform, uint256 timestamp) internal view returns (bytes32) {
+    function _generatePostId(
+        uint256 tokenId,
+        uint8 platform,
+        uint256 timestamp
+    ) internal view returns (bytes32) {
         return keccak256(abi.encodePacked(tokenId, platform, timestamp, totalPosts[tokenId])); // LOW-7 fix: nonce
     }
 
     // ── Swap helpers ──
 
-    function _swapBNBForToken(address tokenAddress, uint256 amountBNB, uint256 slippageBps) internal returns (uint256) {
+    function _swapBNBForToken(
+        address tokenAddress,
+        uint256 amountBNB,
+        uint256 slippageBps
+    ) internal returns (uint256) {
         address[] memory path = new address[](2);
         path[0] = WBNB;
         path[1] = tokenAddress;
@@ -1555,8 +1765,11 @@ contract CTOAgentLogic is MetricsTracker {
         uint256 minOut = _getMinOut(amountBNB, path, slippageBps);
         uint256 balBefore = IERC20(tokenAddress).balanceOf(address(this));
 
-        ROUTER.swapExactETHForTokensSupportingFeeOnTransferTokens{value: amountBNB}(
-            minOut, path, address(this), block.timestamp + DEADLINE_EXTENSION
+        ROUTER.swapExactETHForTokensSupportingFeeOnTransferTokens{ value: amountBNB }(
+            minOut,
+            path,
+            address(this),
+            block.timestamp + DEADLINE_EXTENSION
         );
 
         uint256 received = IERC20(tokenAddress).balanceOf(address(this)) - balBefore;
@@ -1564,7 +1777,11 @@ contract CTOAgentLogic is MetricsTracker {
         return received;
     }
 
-    function _swapTokenForBNB(address tokenAddress, uint256 amountTokens, uint256 slippageBps) internal returns (uint256) {
+    function _swapTokenForBNB(
+        address tokenAddress,
+        uint256 amountTokens,
+        uint256 slippageBps
+    ) internal returns (uint256) {
         _safeApprove(tokenAddress, address(ROUTER), 0);
         _safeApprove(tokenAddress, address(ROUTER), amountTokens);
 
@@ -1576,7 +1793,11 @@ contract CTOAgentLogic is MetricsTracker {
         uint256 balBefore = address(this).balance;
 
         ROUTER.swapExactTokensForETHSupportingFeeOnTransferTokens(
-            amountTokens, minOut, path, address(this), block.timestamp + DEADLINE_EXTENSION
+            amountTokens,
+            minOut,
+            path,
+            address(this),
+            block.timestamp + DEADLINE_EXTENSION
         );
 
         uint256 received = address(this).balance - balBefore;
@@ -1584,7 +1805,11 @@ contract CTOAgentLogic is MetricsTracker {
         return received;
     }
 
-    function _getMinOut(uint256 amountIn, address[] memory path, uint256 slippageBps) internal view returns (uint256) {
+    function _getMinOut(
+        uint256 amountIn,
+        address[] memory path,
+        uint256 slippageBps
+    ) internal view returns (uint256) {
         uint[] memory expected = ROUTER.getAmountsOut(amountIn, path);
         return (expected[1] * (BPS_DENOMINATOR - slippageBps)) / BPS_DENOMINATOR;
     }

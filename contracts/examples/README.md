@@ -18,8 +18,9 @@ relocate, or decline them.
 | `logic/MetricsTracker.sol` | base contract | Shared metrics base (`getMetrics`, action / trade counters). |
 | `interfaces/IPlatformRegistry.sol` | interface | Off-chain platform registry interface. |
 
-The source here is byte-identical to the verified source on BscScan at each
-address above.
+The source here is functionally identical to the verified source on BscScan
+at each address above. Whitespace was adjusted by this repo's Prettier
+configuration; the compiled runtime semantics are unchanged.
 
 ## The pattern they demonstrate
 
