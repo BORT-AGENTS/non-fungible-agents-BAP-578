@@ -84,6 +84,15 @@ Optional local skeletons included:
 - `contracts/templates/BAP578AdapterBlueprint.sol`
 - `test/templates/bap578-adapter.template.test.js`
 
+## Agent Execution Permissions V1 extension draft
+
+The [execution-permissions specification](EXTENSION-README.md) defines per-agent
+action delegation, strict ownership/execution revision profiles, explicit legacy
+compatibility, and delayed governance with an emergency pause guardian.
+`IAgentExecutionPermissionsV1` is separate from the published BAP-578 section 4.6
+`IVaultPermissionManager` off-chain data-access API. Their enums are not interchangeable.
+This reference targets a new deployment; existing proxies need a separate migration assessment.
+
 ## Contract Structure
 
 ### AgentMetadata

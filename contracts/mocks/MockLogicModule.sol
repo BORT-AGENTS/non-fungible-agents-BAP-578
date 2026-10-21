@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { ILogicModuleForwardable } from "../extensions/VaultPermissionManagerReference.sol";
+import { ILogicModuleForwardable } from "../extensions/AgentExecutionPermissionManagerReferenceV1.sol";
 
 /// @notice Minimal mock implementing the ILogicModuleForwardable surface.
 ///         Records the last call and lets tests assert on (tokenId, action, data).

@@ -577,6 +577,8 @@ contract NFA is Ownable, IBAP578 {
         return ecrecover(digest, v, r, s);
     }
 
+    // Preserve the existing public ABI name.
+    // solhint-disable-next-line func-name-mixedcase
     function DOMAIN_SEPARATOR() public view returns (bytes32) {
         if (block.chainid == _initialChainId) {
             return _initialDomainSeparator;

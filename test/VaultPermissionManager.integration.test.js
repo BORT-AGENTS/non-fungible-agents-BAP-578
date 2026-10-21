@@ -1,5 +1,6 @@
 const { expect } = require('chai');
-const { ethers, upgrades } = require('hardhat');
+const { ethers } = require('hardhat');
+const { deployLegacyManager } = require('./helpers/execution-v1');
 
 describe('VaultPermissionManager stock ABI compatibility', function () {
   const TOKEN_ID = 1;
@@ -12,9 +13,7 @@ describe('VaultPermissionManager stock ABI compatibility', function () {
     bap578 = await BAP578.deploy();
     await bap578.deployed();
 
-    const VPM = await ethers.getContractFactory('VaultPermissionManagerReference');
-    vpm = await upgrades.deployProxy(VPM, [bap578.address], { kind: 'uups' });
-    await vpm.deployed();
+    vpm = await deployLegacyManager(bap578);
 
     // This fixture declares (bool, bytes) independently of ILogicModuleForwardable.
     const Logic = await ethers.getContractFactory('MockTupleReturningLogic');
@@ -82,13 +81,19 @@ describe('VaultPermissionManager stock ABI compatibility', function () {
     expect(await logic.callCount()).to.equal(0);
   });
 
-  it('routes to the current bound logic after the agent changes its module', async function () {
+  it('requires fresh owner consent before routing a delegate to a replacement module', async function () {
     await vpm.connect(operator).forwardHandleAction(TOKEN_ID, VAULT_ID, 'check_balance', '0x');
     const Logic = await ethers.getContractFactory('MockTupleReturningLogic');
     const replacement = await Logic.deploy(vpm.address);
     await replacement.deployed();
     await bap578.setLogic(TOKEN_ID, replacement.address);
 
+    expect(await vpm.canForward(TOKEN_ID, VAULT_ID, operator.address)).to.equal(false);
+    await expect(
+      vpm.connect(operator).forwardHandleAction(TOKEN_ID, VAULT_ID, 'check_balance', '0x'),
+    ).to.be.revertedWith('VPM: caller lacks WRITE');
+    expect(await replacement.callCount()).to.equal(0);
+    await vpm.grantPermission(TOKEN_ID, VAULT_ID, operator.address, 2, 0, 'new module consent');
     await vpm.connect(operator).forwardHandleAction(TOKEN_ID, VAULT_ID, 'check_balance', '0x');
     expect(await logic.callCount()).to.equal(1);
     expect(await replacement.callCount()).to.equal(1);

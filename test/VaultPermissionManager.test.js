@@ -1,5 +1,6 @@
 const { expect } = require('chai');
-const { ethers, upgrades } = require('hardhat');
+const { ethers } = require('hardhat');
+const { deployLegacyManager } = require('./helpers/execution-v1');
 
 describe('VaultPermissionManager Extension', function () {
   const VAULT_ID = 'default';
@@ -27,12 +28,7 @@ describe('VaultPermissionManager Extension', function () {
 
     await bap578Mock.mint(TOKEN_ID, owner.address, logic.address);
 
-    const VPM = await ethers.getContractFactory('VaultPermissionManagerReference');
-    vpm = await upgrades.deployProxy(VPM, [bap578Mock.address], {
-      initializer: 'initialize',
-      kind: 'uups',
-    });
-    await vpm.deployed();
+    vpm = await deployLegacyManager(bap578Mock);
   });
 
   describe('createVault', function () {
@@ -318,15 +314,17 @@ describe('VaultPermissionManager Extension', function () {
 
   describe('initialization + upgrade auth', function () {
     it('rejects a second initialize', async function () {
-      await expect(vpm.initialize(bap578Mock.address)).to.be.reverted;
+      await expect(
+        vpm.initialize(await vpm.resolver(), vpm._testGovernance.timelock.address, owner.address),
+      ).to.be.reverted;
     });
 
     it('only the owner can authorize an upgrade', async function () {
-      const VPM = await ethers.getContractFactory('VaultPermissionManagerReference');
+      const VPM = await ethers.getContractFactory('AgentExecutionPermissionManagerReferenceV1');
       // Stranger attempting upgrade should revert.
       const newImpl = await VPM.deploy();
       await newImpl.deployed();
-      // The OwnableUpgradeable owner is the deployer of the proxy (this test runner).
+      // Only the pinned governance timelock can authorize upgrades.
       // We simulate a non-owner upgrade attempt via the raw upgradeTo selector.
       const ifaceFragment = ['function upgradeTo(address)'];
       const proxyAsUUPS = new ethers.Contract(vpm.address, ifaceFragment, stranger);
@@ -381,18 +379,17 @@ describe('VaultPermissionManager Extension', function () {
     it('does NOT reactivate when the contract observed the intermediate owner', async function () {
       await bap578Mock.transfer(TOKEN_ID, stranger.address);
       // Anyone (here the new owner) commits the owner change, advancing the epoch.
-      await vpm.connect(stranger).syncOwner(TOKEN_ID);
+      await vpm.connect(stranger).syncAgentState(TOKEN_ID);
       await bap578Mock.transfer(TOKEN_ID, owner.address);
-      // The grant was stamped at epoch 0; the epoch is now 2, so it stays dead.
+      // The grant was stamped at epoch 0; committed epoch 1 invalidated it.
       expect(await vpm.canForward(TOKEN_ID, VAULT_ID, operator.address)).to.equal(false);
     });
 
-    // Documented residual edge case: if the NFT round-trips owners with NO
-    // VPM call at all in between, the contract never observed the change, so
-    // the epoch never advanced and the original grant reactivates. Closing
-    // this fully needs a transfer hook on BAP-578; an off-chain indexer
-    // calling syncOwner on Transfer events also closes it in practice.
-    it('residual: reactivates only on a fully unobserved owner round-trip', async function () {
+    // Observed-owner mode needs a SUCCESSFULLY COMMITTED observation while
+    // the intermediate owner exists. Views and reverted calls do not count.
+    // An indexer cannot guarantee this for an atomic round trip. The optional
+    // authoritative nonce profile provides stronger invalidation separately.
+    it('documents reactivation after an unobserved owner round-trip', async function () {
       await bap578Mock.transfer(TOKEN_ID, stranger.address);
       expect(await vpm.canForward(TOKEN_ID, VAULT_ID, operator.address)).to.equal(false);
       await bap578Mock.transfer(TOKEN_ID, owner.address);
@@ -400,12 +397,12 @@ describe('VaultPermissionManager Extension', function () {
     });
 
     it('exposes the owner epoch and advances it on observed transfers', async function () {
-      expect(await vpm.ownerEpoch(TOKEN_ID)).to.equal(0);
+      expect(await vpm.permissionEpoch(TOKEN_ID)).to.equal(0);
       await bap578Mock.transfer(TOKEN_ID, stranger.address);
-      // View call already reflects the pending change.
-      expect(await vpm.ownerEpoch(TOKEN_ID)).to.equal(1);
-      await vpm.connect(stranger).syncOwner(TOKEN_ID);
-      expect(await vpm.ownerEpoch(TOKEN_ID)).to.equal(1);
+      // Reads never synthesize or commit an epoch change.
+      expect(await vpm.permissionEpoch(TOKEN_ID)).to.equal(0);
+      await vpm.connect(stranger).syncAgentState(TOKEN_ID);
+      expect(await vpm.permissionEpoch(TOKEN_ID)).to.equal(1);
     });
   });
 });
