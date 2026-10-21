@@ -25,7 +25,7 @@ interface ILogicModuleForwardable {
         uint256 tokenId,
         string calldata action,
         bytes calldata data
-    ) external returns (bytes memory);
+    ) external returns (bool success, bytes memory result);
 }
 
 /// @title VaultPermissionManagerReference
@@ -162,7 +162,7 @@ contract VaultPermissionManagerReference is
         string calldata vaultId,
         string calldata action,
         bytes calldata data
-    ) external nonReentrant returns (bytes memory result) {
+    ) external nonReentrant returns (bool success, bytes memory result) {
         bytes32 vid = _vid(vaultId);
         require(_vaults[tokenId][vid], "VPM: no such vault");
 
@@ -174,7 +174,7 @@ contract VaultPermissionManagerReference is
         require(logic != address(0), "VPM: no logic bound");
 
         emit ActionForwarded(tokenId, vid, msg.sender, action);
-        result = ILogicModuleForwardable(logic).handleAction(tokenId, action, data);
+        (success, result) = ILogicModuleForwardable(logic).handleAction(tokenId, action, data);
     }
 
     /// @notice Commit the current owner of `tokenId` into contract state.

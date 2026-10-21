@@ -22,7 +22,7 @@ contract MockLogicModule is ILogicModuleForwardable {
         uint256 tokenId,
         string calldata action,
         bytes calldata data
-    ) external override returns (bytes memory) {
+    ) external override returns (bool success, bytes memory result) {
         if (revertNext) {
             revertNext = false;
             revert(
@@ -33,6 +33,6 @@ contract MockLogicModule is ILogicModuleForwardable {
         lastAction = action;
         lastData = data;
         lastCaller = msg.sender;
-        return abi.encode(true);
+        return (true, abi.encode(true));
     }
 }

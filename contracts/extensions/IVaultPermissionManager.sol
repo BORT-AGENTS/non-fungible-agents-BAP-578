@@ -98,13 +98,15 @@ interface IVaultPermissionManager {
     /// @notice Forward an action to the agent's bound logic module.
     /// @dev msg.sender must have at least WRITE on (tokenId, vaultId). Reverts
     ///      with the logic module's revert reason if the inner call reverts.
-    /// @return result Whatever bytes the logic module returns (often empty).
+    ///      A returned failure is forwarded unchanged; it does not revert.
+    /// @return success The logic module's action success flag.
+    /// @return result The logic module's result bytes, including failure details.
     function forwardHandleAction(
         uint256 tokenId,
         string calldata vaultId,
         string calldata action,
         bytes calldata data
-    ) external returns (bytes memory result);
+    ) external returns (bool success, bytes memory result);
 
     /// @notice Commit the token's current owner into contract state, advancing
     ///         the owner epoch if it changed.

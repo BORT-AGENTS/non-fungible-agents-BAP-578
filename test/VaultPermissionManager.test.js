@@ -335,13 +335,14 @@ describe('VaultPermissionManager Extension', function () {
   });
 
   describe('forwardHandleAction return value', function () {
-    it('returns whatever bytes the logic module returns', async function () {
+    it('returns the logic module success flag and result bytes', async function () {
       await vpm.connect(owner).createVault(TOKEN_ID, VAULT_ID, '');
       await vpm.connect(owner).grantPermission(TOKEN_ID, VAULT_ID, operator.address, WRITE, 0, '');
-      // Static-call to read the return value (mock returns abi.encode(true)).
-      const result = await vpm
+      // Static-call to read the tuple (mock returns true and abi.encode(true)).
+      const [success, result] = await vpm
         .connect(operator)
         .callStatic.forwardHandleAction(TOKEN_ID, VAULT_ID, 'check_balance', '0x');
+      expect(success).to.equal(true);
       const [decoded] = ethers.utils.defaultAbiCoder.decode(['bool'], result);
       expect(decoded).to.equal(true);
     });
